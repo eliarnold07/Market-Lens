@@ -431,6 +431,55 @@
       color: #cbd5e1;
     }
 
+    /* ─── Semantic Score Labels ──────────────────────────── */
+    .score-interpretation {
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+      font-family: 'DM Mono', monospace;
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      text-transform: uppercase;
+    }
+
+    /* ─── Metric Color Classes ───────────────────────────── */
+    .metric-card.metric-green {
+      border-color: rgba(74,222,128,0.25);
+      background: rgba(74,222,128,0.06);
+    }
+
+    .metric-card.metric-green .metric-value {
+      color: var(--green);
+    }
+
+    .metric-card.metric-yellow {
+      border-color: rgba(250,204,21,0.25);
+      background: rgba(250,204,21,0.06);
+    }
+
+    .metric-card.metric-yellow .metric-value {
+      color: #facc15;
+    }
+
+    .metric-card.metric-red {
+      border-color: rgba(248,113,113,0.25);
+      background: rgba(248,113,113,0.06);
+    }
+
+    .metric-card.metric-red .metric-value {
+      color: var(--red);
+    }
+
+    .metric-card.metric-blue {
+      border-color: rgba(96,165,250,0.25);
+      background: rgba(96,165,250,0.06);
+    }
+
+    .metric-card.metric-blue .metric-value {
+      color: #60a5fa;
+    }
+
     .chart-panel {
       background: rgba(255,255,255,0.03);
       border: 1px solid var(--border);
@@ -680,21 +729,25 @@
           <div class="score-card" id="riskCard">
             <div class="score-label">Risk Score</div>
             <div class="score-value" id="scoreRisk">—</div>
+            <div class="score-interpretation" id="scoreRiskLabel"></div>
             <div class="score-sub">Lower is safer, higher is more aggressive.</div>
           </div>
           <div class="score-card" id="momentumCard">
             <div class="score-label">Momentum Score</div>
             <div class="score-value" id="scoreMomentum">—</div>
+            <div class="score-interpretation" id="scoreMomentumLabel"></div>
             <div class="score-sub">Higher means stronger trend momentum.</div>
           </div>
           <div class="score-card" id="fitCard">
             <div class="score-label">Strategy Fit</div>
             <div class="score-value" id="scoreFit">—</div>
+            <div class="score-interpretation" id="scoreFitLabel"></div>
             <div class="score-sub">How well this ticker matches the selected strategy.</div>
           </div>
           <div class="score-card" id="profileCard">
             <div class="score-label">Market Profile</div>
             <div class="score-value" id="scoreProfile">—</div>
+            <div class="score-interpretation" id="scoreProfileLabel"></div>
             <div class="score-sub">Current market regime or trend classification.</div>
           </div>
         </div>
@@ -738,7 +791,103 @@
   // ── Configuration ────────────────────────────────────────
   const BACKEND_URL = 'http://localhost:5000';
 
-  // ── Watchlist state (persisted to localStorage) ──────────
+  // ─── Helper Functions: Score Interpretation ─────────────
+  function getRiskScoreLabel(score) {
+    if (score === null || score === undefined || score === '—') return '';
+    const val = parseFloat(score);
+    if (isNaN(val)) return '';
+    if (val <= 3) return 'Low Risk';
+    if (val <= 6) return 'Moderate Risk';
+    return 'High Risk';
+  }
+
+  function getMomentumScoreLabel(score) {
+    if (score === null || score === undefined || score === '—') return '';
+    const val = parseFloat(score);
+    if (isNaN(val)) return '';
+    if (val <= 3) return 'Weak Momentum';
+    if (val <= 6) return 'Neutral Momentum';
+    if (val <= 8) return 'Strong Momentum';
+    return 'Explosive Momentum';
+  }
+
+  function getStrategyFitLabel(score) {
+    if (score === null || score === undefined || score === '—') return '';
+    const val = parseFloat(score);
+    if (isNaN(val)) return '';
+    if (val <= 4) return 'Weak Fit';
+    if (val <= 7) return 'Moderate Fit';
+    if (val <= 9) return 'Strong Fit';
+    return 'Ideal Fit';
+  }
+
+  function getMarketProfileLabel(profile) {
+    if (!profile || profile === '—') return '';
+    // Profile is already a semantic description from backend, just format it
+    return profile;
+  }
+
+  // ─── Helper Functions: Metric Color Classification ──────
+  function getMetricColor(metricLabel, metricValue) {
+    if (!metricValue || metricValue === '—' || metricValue === 'N/A') return 'metric-blue';
+
+    const label = (metricLabel || '').toLowerCase();
+    const value = metricValue.toString().toLowerCase();
+
+    // RSI Logic
+    if (label.includes('rsi')) {
+      const rsiVal = parseFloat(metricValue);
+      if (!isNaN(rsiVal)) {
+        if (rsiVal > 70) return 'metric-red';       // Overbought
+        if (rsiVal >= 50 && rsiVal <= 70) return 'metric-green';  // Healthy momentum
+        if (rsiVal < 30) return 'metric-red';       // Oversold
+        if (rsiVal >= 30 && rsiVal < 50) return 'metric-yellow'; // Neutral
+      }
+    }
+
+    // Daily Price Change
+    if (label.includes('daily') && label.includes('change')) {
+      const changeVal = parseFloat(metricValue);
+      if (!isNaN(changeVal)) {
+        if (changeVal > 1) return 'metric-green';    // Positive
+        if (changeVal < -1) return 'metric-red';     // Negative
+        return 'metric-yellow';                      // Neutral
+      }
+    }
+
+    // Volatility
+    if (label.includes('volatility')) {
+      const volVal = parseFloat(metricValue);
+      if (!isNaN(volVal)) {
+        if (volVal > 55) return 'metric-red';        // Very high volatility
+        if (volVal > 40) return 'metric-yellow';     // Elevated
+        return 'metric-green';                       // Normal
+      }
+    }
+
+    // Price vs Moving Averages
+    if (label.includes('price') && label.includes('200')) {
+      if (value.includes('above') || value.includes('higher')) return 'metric-green';
+      if (value.includes('below') || value.includes('lower')) return 'metric-red';
+    }
+
+    if (label.includes('price') && label.includes('50')) {
+      if (value.includes('above') || value.includes('higher')) return 'metric-green';
+      if (value.includes('below') || value.includes('lower')) return 'metric-red';
+    }
+
+    // Market Regime
+    if (label.includes('market') && label.includes('regime')) {
+      if (value.includes('uptrend') || value.includes('bullish')) return 'metric-green';
+      if (value.includes('bearish') || value.includes('breakdown')) return 'metric-red';
+      if (value.includes('neutral') || value.includes('sideways')) return 'metric-yellow';
+    }
+
+    // Default to blue for informational metrics
+    return 'metric-blue';
+  }
+
+  // ─── Watchlist state (persisted to localStorage) ──────────
   let watchlist = JSON.parse(localStorage.getItem('ml_watchlist') || '[]');
   let currentResultTicker = '';
   let currentResultCompany = '';
@@ -1107,6 +1256,12 @@
     document.getElementById('scoreFit').textContent = data.strategy_fit_score || '—';
     document.getElementById('scoreProfile').textContent = data.market_profile || '—';
 
+    // Apply semantic interpretation labels
+    document.getElementById('scoreRiskLabel').textContent = getRiskScoreLabel(data.risk_score);
+    document.getElementById('scoreMomentumLabel').textContent = getMomentumScoreLabel(data.momentum_score);
+    document.getElementById('scoreFitLabel').textContent = getStrategyFitLabel(data.strategy_fit_score);
+    document.getElementById('scoreProfileLabel').textContent = getMarketProfileLabel(data.market_profile);
+
     applyScoreClass(document.getElementById('riskCard'), 'risk', data.risk_score);
     applyScoreClass(document.getElementById('momentumCard'), 'momentum', data.momentum_score);
     applyScoreClass(document.getElementById('fitCard'), 'fit', data.strategy_fit_score);
@@ -1123,6 +1278,11 @@
       }
       const card = document.createElement('div');
       card.className = 'metric-card';
+      
+      // Apply dynamic color based on metric meaning
+      const colorClass = getMetricColor(m.label, m.value);
+      card.classList.add(colorClass);
+      
       card.innerHTML = `<div class="metric-label">${m.label}</div><div class="metric-value">${m.value}</div>`;
       grid.appendChild(card);
     });

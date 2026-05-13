@@ -195,17 +195,26 @@ def calculate_risk_score(pe_ratio, rsi, volatility_30d, current_price, ma50, ma2
 
     if volatility_30d is not None:
         if volatility_30d > 60:
+            score += 4
+        elif volatility_30d > 45:
             score += 3
-        elif volatility_30d > 40:
+        elif volatility_30d > 35:
             score += 2
         elif volatility_30d > 25:
             score += 1
 
     if rsi is not None:
-        if rsi > 75 or rsi < 25:
-            score += 2
+        if rsi > 80 or rsi < 20:
+            score += 3
         elif rsi > 70 or rsi < 30:
+            score += 2
+        elif rsi > 65 or rsi < 35:
             score += 1
+
+    if ma200 is not None and current_price is not None and current_price < ma200:
+        score += 3
+    elif ma50 is not None and current_price is not None and current_price < ma50:
+        score += 1
 
     if pe_ratio is not None:
         if pe_ratio > 80:
@@ -214,12 +223,6 @@ def calculate_risk_score(pe_ratio, rsi, volatility_30d, current_price, ma50, ma2
             score += 2
         elif pe_ratio > 30:
             score += 1
-
-    if ma50 is not None and current_price is not None and current_price < ma50:
-        score += 1
-
-    if ma200 is not None and current_price is not None and current_price < ma200:
-        score += 2
 
     if distance_from_52w_high is not None:
         if distance_from_52w_high < -40:
@@ -230,28 +233,17 @@ def calculate_risk_score(pe_ratio, rsi, volatility_30d, current_price, ma50, ma2
     return min(score, 10)
 
 
-def calculate_momentum_score(current_price, price_change_pct, ma50, ma200, rsi, distance_from_52w_high):
+def calculate_momentum_score(current_price, price_change_pct, ma50, ma200, rsi, distance_from_52w_high, volume_trend=None):
     score = 0
 
     if ma50 is not None and current_price is not None and current_price > ma50:
         score += 2
 
     if ma200 is not None and current_price is not None and current_price > ma200:
-        score += 2
+        score += 3
 
-    if price_change_pct is not None:
-        if price_change_pct > 3:
-            score += 2
-        elif price_change_pct > 0:
-            score += 1
-
-    if rsi is not None:
-        if 55 <= rsi <= 70:
-            score += 3
-        elif 45 <= rsi < 55:
-            score += 1
-        elif rsi > 70:
-            score += 1
+    if ma50 is not None and ma200 is not None and current_price is not None and current_price > ma50 and current_price > ma200:
+        score += 1
 
     if distance_from_52w_high is not None:
         if distance_from_52w_high > -5:
@@ -259,7 +251,27 @@ def calculate_momentum_score(current_price, price_change_pct, ma50, ma200, rsi, 
         elif distance_from_52w_high > -15:
             score += 1
 
-    return min(score, 10)
+    if price_change_pct is not None:
+        if price_change_pct > 3:
+            score += 1
+        elif price_change_pct > 0:
+            score += 0.5
+
+    if rsi is not None:
+        if rsi > 70:
+            score += 3
+        elif 55 <= rsi <= 70:
+            score += 2
+        elif 45 <= rsi < 55:
+            score += 1
+
+    if volume_trend is not None and isinstance(volume_trend, dict):
+        if volume_trend.get('trend') == 'higher':
+            score += 1
+        elif volume_trend.get('trend') == 'lower':
+            score -= 1
+
+    return max(0, min(score, 10))
 
 
 def calculate_valuation_score(pe_ratio, target_price, current_price):
@@ -297,6 +309,8 @@ def calculate_valuation_score(pe_ratio, target_price, current_price):
 def classify_market_profile(current_price, ma50, ma200, rsi, volatility_30d, distance_from_52w_high):
     above_ma50 = ma50 is not None and current_price is not None and current_price > ma50
     above_ma200 = ma200 is not None and current_price is not None and current_price > ma200
+    near_ma50 = ma50 is not None and current_price is not None and abs(current_price - ma50) / ma50 < 0.03
+    near_ma200 = ma200 is not None and current_price is not None and abs(current_price - ma200) / ma200 < 0.05
 
     if above_ma50 and above_ma200 and rsi is not None and rsi > 70:
         return "Extended Momentum"
@@ -304,29 +318,35 @@ def classify_market_profile(current_price, ma50, ma200, rsi, volatility_30d, dis
     if above_ma50 and above_ma200 and rsi is not None and 50 <= rsi <= 70:
         return "Healthy Uptrend"
 
-    if rsi is not None and rsi < 30 and not above_ma50 and not above_ma200:
-        return "Oversold Breakdown"
-
     if rsi is not None and rsi < 35 and volatility_30d is not None and volatility_30d > 40:
-        return "High-Risk Bounce Setup"
+        return "Oversold Bounce Setup"
+
+    if not above_ma50 and not above_ma200 and rsi is not None and rsi < 40:
+        return "Bearish Breakdown"
+
+    if near_ma50 and near_ma200 and rsi is not None and 40 <= rsi <= 60:
+        return "Sideways Consolidation"
 
     if not above_ma50 and not above_ma200:
-        return "Bearish Trend"
+        return "Bearish Breakdown"
 
     if volatility_30d is not None and volatility_30d > 55:
-        return "High-Volatility Setup"
+        return "Extended Momentum"
 
     if distance_from_52w_high is not None and distance_from_52w_high > -5:
-        return "Near 52-Week High"
+        return "Healthy Uptrend"
 
     return "Mixed / Neutral Setup"
 
 
-def conservative_fit(risk_score, momentum_score, valuation_score, volatility_30d, rsi):
-    score = 10
-    score -= risk_score * 0.7
+def conservative_fit(risk_score, momentum_score, valuation_score, volatility_30d, rsi, current_price, ma200):
+    score = 6
+    score -= risk_score * 0.5
 
     if volatility_30d is not None and volatility_30d > 40:
+        score -= 2
+
+    if current_price is not None and ma200 is not None and current_price < ma200:
         score -= 2
 
     if rsi is not None and (rsi > 70 or rsi < 30):
@@ -335,22 +355,24 @@ def conservative_fit(risk_score, momentum_score, valuation_score, volatility_30d
     if valuation_score is not None and valuation_score >= 6:
         score += 1
 
-    if 4 <= momentum_score <= 7:
+    if momentum_score >= 5 and current_price is not None and ma200 is not None and current_price > ma200:
         score += 1
 
     return round(max(0, min(score, 10)), 1)
 
 
 def balanced_fit(risk_score, momentum_score, valuation_score):
-    score = 5
+    score = 4
 
-    if 3 <= risk_score <= 6:
+    if risk_score <= 4:
         score += 2
-    elif risk_score > 7:
-        score -= 2
+    elif risk_score >= 7:
+        score -= 1
 
     if momentum_score >= 5:
         score += 2
+    elif momentum_score < 3:
+        score -= 1
 
     if valuation_score is not None and valuation_score >= 5:
         score += 1
@@ -358,43 +380,57 @@ def balanced_fit(risk_score, momentum_score, valuation_score):
     return round(max(0, min(score, 10)), 1)
 
 
-def aggressive_growth_fit(risk_score, momentum_score, valuation_score, rsi, volatility_30d):
+def aggressive_growth_fit(risk_score, momentum_score, valuation_score, rsi, volatility_30d, distance_from_52w_high, current_price, ma50, ma200):
     score = 4
 
     if momentum_score >= 6:
         score += 3
 
-    if risk_score >= 5:
+    if current_price is not None and ma50 is not None and ma200 is not None and current_price > ma50 and current_price > ma200:
+        score += 1
+
+    if distance_from_52w_high is not None and distance_from_52w_high > -15:
         score += 1
 
     if valuation_score is not None and valuation_score <= 4:
-        score -= 1
+        score += 1
 
-    if rsi is not None and rsi > 75:
+    if rsi is not None and rsi > 80:
         score -= 1
 
     if volatility_30d is not None and volatility_30d > 60:
         score -= 1
 
+    if risk_score > 7:
+        score -= 1
+
     return round(max(0, min(score, 10)), 1)
 
 
-def momentum_trader_fit(risk_score, momentum_score, rsi, current_price, ma50, ma200):
+def momentum_trader_fit(risk_score, momentum_score, rsi, current_price, ma50, ma200, volume_trend, distance_from_52w_high):
     score = momentum_score
 
-    if ma50 is not None and current_price is not None and current_price > ma50:
+    if current_price is not None and ma50 is not None and current_price > ma50:
         score += 1
 
-    if ma200 is not None and current_price is not None and current_price > ma200:
+    if current_price is not None and ma200 is not None and current_price > ma200:
+        score += 1
+
+    if distance_from_52w_high is not None and distance_from_52w_high > -10:
         score += 1
 
     if rsi is not None and 55 <= rsi <= 70:
-        score += 2
+        score += 1
+    elif rsi is not None and rsi > 75:
+        score -= 1
 
-    if rsi is not None and rsi > 75:
-        score -= 2
+    if volume_trend is not None and isinstance(volume_trend, dict):
+        if volume_trend.get('trend') == 'higher':
+            score += 1
+        elif volume_trend.get('trend') == 'lower':
+            score -= 1
 
-    if risk_score > 8:
+    if risk_score > 7:
         score -= 1
 
     return round(max(0, min(score, 10)), 1)
@@ -421,21 +457,29 @@ def long_term_compounder_fit(risk_score, momentum_score, valuation_score, curren
     return round(max(0, min(score, 10)), 1)
 
 
-def value_hunter_fit(risk_score, valuation_score, rsi, target_price, current_price):
-    score = valuation_score if valuation_score is not None else 5
+def value_hunter_fit(risk_score, valuation_score, rsi, target_price, current_price, ma200):
+    score = valuation_score if valuation_score is not None else 4
+
+    if current_price is not None and ma200 is not None and current_price < ma200:
+        score += 1
 
     if rsi is not None and rsi < 35:
-        score += 2
+        score += 1
+    elif rsi is not None and rsi > 70:
+        score -= 1
 
     if target_price is not None and current_price is not None and current_price != 0:
         upside = ((target_price - current_price) / current_price) * 100
         if upside > 20:
-            score += 2
-        elif upside > 10:
             score += 1
+        elif upside > 10:
+            score += 0.5
 
-    if risk_score > 8:
+    if risk_score > 7:
         score -= 2
+
+    if current_price is not None and ma200 is not None and current_price > ma200:
+        score -= 1
 
     return round(max(0, min(score, 10)), 1)
 
@@ -450,14 +494,15 @@ def calculate_strategy_engine(
     ma200,
     rsi,
     volatility_30d,
-    distance_from_52w_high
+    distance_from_52w_high,
+    volume_trend=None
 ):
     risk_score = calculate_risk_score(
         pe_ratio, rsi, volatility_30d, current_price, ma50, ma200, distance_from_52w_high
     )
 
     momentum_score = calculate_momentum_score(
-        current_price, price_change_pct, ma50, ma200, rsi, distance_from_52w_high
+        current_price, price_change_pct, ma50, ma200, rsi, distance_from_52w_high, volume_trend
     )
 
     valuation_score = calculate_valuation_score(
@@ -469,17 +514,17 @@ def calculate_strategy_engine(
     )
 
     if selected_strategy == "Conservative Investor":
-        strategy_fit_score = conservative_fit(risk_score, momentum_score, valuation_score, volatility_30d, rsi)
+        strategy_fit_score = conservative_fit(risk_score, momentum_score, valuation_score, volatility_30d, rsi, current_price, ma200)
     elif selected_strategy == "Balanced Investor":
         strategy_fit_score = balanced_fit(risk_score, momentum_score, valuation_score)
     elif selected_strategy == "Aggressive Growth":
-        strategy_fit_score = aggressive_growth_fit(risk_score, momentum_score, valuation_score, rsi, volatility_30d)
+        strategy_fit_score = aggressive_growth_fit(risk_score, momentum_score, valuation_score, rsi, volatility_30d, distance_from_52w_high, current_price, ma50, ma200)
     elif selected_strategy == "Momentum Trader":
-        strategy_fit_score = momentum_trader_fit(risk_score, momentum_score, rsi, current_price, ma50, ma200)
+        strategy_fit_score = momentum_trader_fit(risk_score, momentum_score, rsi, current_price, ma50, ma200, volume_trend, distance_from_52w_high)
     elif selected_strategy == "Long-Term Compounder":
         strategy_fit_score = long_term_compounder_fit(risk_score, momentum_score, valuation_score, current_price, ma200, volatility_30d)
     elif selected_strategy == "Value Hunter":
-        strategy_fit_score = value_hunter_fit(risk_score, valuation_score, rsi, target_price, current_price)
+        strategy_fit_score = value_hunter_fit(risk_score, valuation_score, rsi, target_price, current_price, ma200)
     else:
         strategy_fit_score = balanced_fit(risk_score, momentum_score, valuation_score)
 
@@ -542,18 +587,19 @@ def fallback_analysis(ticker, company_name, data):
     else:
         opener = f"{company_name} ({ticker}) is trading relatively flat, suggesting a more balanced near-term setup."
 
+    analysis = []
+    analysis.append(f"Market Setup Summary: {opener}")
+    analysis.append("Strategy Alignment: The current profile is neutral, with only basic momentum and valuation data available in fallback mode.")
+    analysis.append("Tactical Considerations: Confirm the trend with live volume, moving averages, and volatility before taking a position.")
+    analysis.append("Risk Assessment: The lack of OpenAI detail means focus on downside protection, especially if price remains below the 200-day average.")
+
     return {
         "sentiment": sentiment,
-        "analysis": (
-            f"{opener}\n\n"
-            f"The company has a market capitalization of {format_large_number(market_cap)} and trades at roughly {pe_ratio}x earnings. "
-            "This fallback report is based only on Yahoo Finance data because the OpenAI API key was not available.\n\n"
-            "Investors should compare valuation, growth, earnings quality, and recent news before making any decision."
-        ),
+        "analysis": "\n\n".join(analysis),
         "takeaways": [
-            "OpenAI analysis is not active yet; add OPENAI_API_KEY to your .env file.",
-            "Current output is based on market data only.",
-            "This is educational research, not financial advice."
+            "Verify trend direction with live volume and moving-average alignment.",
+            "Prioritize capital preservation until a cleaner setup emerges.",
+            "Use the report only for educational research, not as a transaction signal."
         ],
         "risk_score": "5/10",
         "momentum_score": "5/10",
@@ -581,32 +627,29 @@ def generate_openai_report(ticker, focus, market_context):
         return report
 
     strategy_prompts = {
-        "Conservative Investor": "Prioritize downside protection, stability, valuation discipline, and lower volatility.",
-        "Balanced Investor": "Balance growth and risk by weighing valuation, stability, and incremental upside while avoiding extreme volatility.",
-        "Aggressive Growth": "Focus on momentum, revenue acceleration, expansion potential, and high-upside opportunities while accepting elevated risk.",
-        "Momentum Trader": "Focus heavily on RSI, moving averages, trend continuation, volatility, volume, and tactical entries.",
-        "Long-Term Compounder": "Focus on durable competitive advantages, cash flow growth, margins, and long-term business quality.",
-        "Value Hunter": "Focus on valuation compression, intrinsic value, balance sheet strength, and mean reversion opportunities.",
+        "Conservative Investor": "Prioritize downside protection, stable trend alignment, lower volatility, and disciplined capital preservation.",
+        "Balanced Investor": "Balance trend quality, valuation, and risk control for a measured exposure.",
+        "Aggressive Growth": "Prioritize momentum, high-upside continuation, and tactical risk management while accepting elevated volatility.",
+        "Momentum Trader": "Prioritize trend continuation, moving average alignment, strong RSI, volume confirmation, and price strength near highs.",
+        "Long-Term Compounder": "Prioritize durable earnings quality, cash flow stability, and constructive long-term trend behavior.",
+        "Value Hunter": "Prioritize relative valuation, mean reversion potential, cash flow stability, and lower downside risk.",
     }
 
     strategy_guidance = strategy_prompts.get(focus, "Focus on the current market setup with a balanced view of valuation, momentum, and risk.")
 
     system_prompt = """
-You are a junior equity research analyst writing a short, direct trading-focused report.
-Your analysis should be precise and action-oriented, not generic.
+You are an institutional equity research analyst writing a concise, structured strategy note.
+The report should be professional, evidence-based, and tactical.
 
 Guidelines:
 - Do NOT say buy, sell, or short.
-- Avoid repeating metrics that are already shown in the summary cards above.
-- Focus on the current market setup and trading implications.
-- Use strong directional guidance in wording such as "more favorable for", "better suited to", "risks outweigh reward if", or "suggests caution around".
-- Integrate tactical indicators into the view: RSI, 50-day MA, 200-day MA, volume trend, volatility, and distance from 52-week highs/lows.
-- Only reference technical indicators that are explicitly provided in the market data.
-- Do not invent support, resistance, breakout, or price target levels. Only mention them if real market data shows those levels.
-- If technical indicators conflict, explain the conflict instead of forcing a directional conclusion.
-- Explain what each cited metric means for the current trade setup, not just the number itself.
-- Prefer evidence-based statements and avoid unsupported predictions.
-- If a tactical metric is missing or unavailable, say that it is unavailable.
+- Avoid repetitive language and generic filler.
+- Use clear section headings in the analysis text: Market Setup Summary, Strategy Alignment, Tactical Considerations, Risk Assessment.
+- Keep each section short and easy to scan.
+- Reference only the provided data.
+- Do not invent price levels, support, or resistance unless the data clearly supports them.
+- When indicators conflict, explain the conflict directly.
+- Prefer specific market commentary over broad narrative.
 - Return ONLY valid JSON with no markdown.
 """
 
@@ -619,21 +662,18 @@ Strategy guidance: {strategy_guidance}
 Market context:
 {json.dumps(market_context, indent=2)}
 
-Your report should:
-1. Describe the current trading setup and momentum.
-2. Use tactical indicators explicitly: RSI, 50-day MA, 200-day MA, volume trend, volatility, and distance from 52-week highs/lows.
-3. Use the provided news headlines only if they are directly relevant to this company or its sector. If headlines are available, mention the most relevant one and explain why it matters for the current setup.
-4. If headlines are generic or not clearly related to this company, say that news is not a material factor right now.
-5. Explain what each metric implies for the near-term outlook.
-6. Align your qualitative view with the backend scoring engine that calculates risk, momentum, valuation, strategy fit, and market profile.
-7. Base any directional view on tactical data, valuation context, and strategy orientation.
-8. Identify the main risks and the preferred risk posture.
-9. Avoid repeating the summary card metrics; use the added tactical data to sharpen the view.
+Your report must follow this structure:
+1. Market Setup Summary: 2-3 concise sentences covering trend condition, momentum condition, volatility, and market profile classification.
+2. Strategy Alignment: explain why the stock fits or does not fit the selected strategy, referencing RSI, moving averages, volatility, proximity to the 52-week high, momentum, and trend strength.
+3. Tactical Considerations: provide 2-3 specific observations on entry conditions, overextension, confirmation signals, caution areas, or ideal trader behavior.
+4. Risk Assessment: describe downside risks, volatility concerns, trend weakness, overbought/oversold conditions, and key technical threats.
+
+If news is relevant, mention the most material headline and why it matters; otherwise say news is not a material factor.
 
 Return this exact JSON:
 {{
   "sentiment": "Bullish" | "Bearish" | "Neutral",
-  "analysis": "2-3 direct paragraphs that describe the trading setup, near-term outlook, and how a trader should frame the opportunity.",
+  "analysis": "A four-section note with the headings above, separated by newlines.",
   "takeaways": [
     "Takeaway 1 - specific and actionable",
     "Takeaway 2 - specific and actionable",
@@ -779,6 +819,7 @@ def analyze():
             rsi,
             volatility_30d,
             distance_from_52_week_high_pct,
+            volume_trend,
         )
 
         analysis_data = {
