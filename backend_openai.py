@@ -590,6 +590,36 @@ def get_sector_group(sector):
     return "Balanced"
 
 
+def get_holding_exposure_group(holding):
+    ticker = (holding.get('ticker') or '').upper()
+    sector = holding.get('sector')
+    group = get_sector_group(sector)
+    risk = holding.get('risk_score') or 0
+    momentum = holding.get('momentum_score') or 0
+    valuation = holding.get('valuation_score') or 0
+    volatility = holding.get('volatility') or 0
+
+    forced_growth = {"NVDA", "PLTR", "TSLA", "SOFI"}
+    forced_defensive = {"JNJ", "PG", "KO"}
+    forced_speculative = {"PLTR", "TSLA", "SOFI"}
+
+    if ticker in forced_speculative:
+        return "Speculative"
+    if risk >= 7 or volatility >= 45 or (valuation <= 4 and risk >= 6):
+        return "Speculative"
+    if ticker in forced_growth:
+        return "Growth"
+    if group == "Growth" or momentum >= 7 or (volatility >= 35 and momentum >= 6):
+        return "Growth"
+    if ticker in forced_defensive:
+        return "Defensive"
+    if group == "Defensive" or volatility <= 25 or risk <= 3.5:
+        return "Defensive"
+    if group == "Speculative":
+        return "Speculative"
+    return "Growth"
+
+
 def get_diversification_rating(num_holdings, largest_pct, top3_pct):
     if num_holdings >= 8 and largest_pct < 25 and top3_pct < 60:
         return "High"
@@ -598,59 +628,27 @@ def get_diversification_rating(num_holdings, largest_pct, top3_pct):
     return "Low"
 
 
-def get_portfolio_style(avg_risk, avg_momentum, avg_valuation, growth_exposure_pct, defensive_exposure_pct, speculative_exposure_pct, top3_pct, avg_volatility):
-    if top3_pct >= 45 and (growth_exposure_pct >= 35 or speculative_exposure_pct >= 35):
+def get_portfolio_style(avg_risk, avg_momentum, avg_valuation, growth_exposure_pct, defensive_exposure_pct, speculative_exposure_pct, largest_pct, top3_pct, avg_volatility):
+    growth_speculative_exp = growth_exposure_pct + speculative_exposure_pct
+
+    if largest_pct >= 45 and growth_speculative_exp >= 55:
         return "Concentrated Growth"
-    if speculative_exposure_pct >= 40 and avg_volatility >= 40:
+    if avg_volatility >= 45 or speculative_exposure_pct >= 55:
         return "Speculative High-Volatility"
-    if avg_momentum >= 7 and avg_risk >= 5:
+    if avg_momentum >= 7 and avg_risk >= 4:
         return "Momentum-Oriented Growth"
+    if growth_speculative_exp >= 55 and avg_momentum >= 6:
+        return "Aggressive Growth"
+    if avg_risk <= 4 and avg_volatility <= 30 and defensive_exposure_pct >= 35:
+        return "Defensive / Conservative"
     if avg_valuation >= 7 and avg_momentum <= 6:
         return "Value-Oriented"
-    if avg_risk <= 4 and avg_volatility <= 30:
-        return "Defensive / Conservative"
-    if 4 < avg_risk <= 6 and top3_pct < 65:
+    if 4 <= avg_risk <= 6 and avg_volatility <= 40 and largest_pct < 45 and speculative_exposure_pct < 45:
         return "Balanced Large-Cap Blend"
     return "Mixed / Unclear"
 
 
-def get_portfolio_alignment(target_strategy, avg_risk, avg_momentum, avg_volatility, largest_pct, top3_pct, defensive_exposure_pct, growth_exposure_pct, speculative_exposure_pct, below_200_share=0):
-    score = 0
-    if target_strategy == "Conservative Investor":
-        score += 2 if avg_risk <= 4 else 1 if avg_risk <= 5 else 0
-        score += 2 if avg_volatility <= 35 else 1 if avg_volatility <= 45 else 0
-        score += 2 if defensive_exposure_pct >= 35 else 1 if defensive_exposure_pct >= 25 else 0
-        score += 1 if largest_pct < 40 else 0
-        score += 1 if speculative_exposure_pct < 25 else 0
-    elif target_strategy == "Balanced Investor":
-        score += 2 if 4 <= avg_risk <= 6 else 1 if 3 <= avg_risk <= 7 else 0
-        score += 2 if 5 <= avg_momentum <= 8 else 1 if 4 <= avg_momentum <= 9 else 0
-        score += 2 if avg_volatility <= 45 else 1 if avg_volatility <= 55 else 0
-        score += 2 if top3_pct < 60 else 1 if top3_pct < 70 else 0
-        score += 1 if speculative_exposure_pct < 35 else 0
-    elif target_strategy == "Aggressive Growth":
-        score += 2 if avg_momentum >= 7 else 1 if avg_momentum >= 6 else 0
-        score += 2 if growth_exposure_pct >= 40 or speculative_exposure_pct >= 35 else 1 if growth_exposure_pct >= 30 or speculative_exposure_pct >= 25 else 0
-        score += 1 if avg_risk <= 7 else 0
-        score += 1 if avg_momentum >= 7 and avg_risk <= 8 else 0
-        score += 2 if top3_pct < 80 else 1 if top3_pct < 90 else 0
-        score += 1 if largest_pct < 60 else 0
-    elif target_strategy == "Momentum Trader":
-        score += 3 if avg_momentum >= 8 else 2 if avg_momentum >= 7 else 1 if avg_momentum >= 6 else 0
-        score += 2 if below_200_share <= 40 else 1 if below_200_share <= 60 else 0
-        score += 1 if avg_risk <= 7 else 0
-        score += 1 if top3_pct < 70 else 0
-    elif target_strategy == "Long-Term Compounder":
-        score += 2 if avg_risk <= 5 else 1 if avg_risk <= 6 else 0
-        score += 2 if below_200_share <= 40 else 1 if below_200_share <= 60 else 0
-        score += 2 if avg_volatility <= 45 else 1 if avg_volatility <= 55 else 0
-        score += 1 if speculative_exposure_pct <= 30 else 0
-    elif target_strategy == "Value Hunter":
-        score += 3 if avg_valuation >= 7 else 2 if avg_valuation >= 6 else 1 if avg_valuation >= 5 else 0
-        score += 2 if avg_risk <= 6 else 1 if avg_risk <= 7 else 0
-        score += 1 if speculative_exposure_pct <= 35 else 0
-        score -= 1 if avg_momentum > 8 and avg_risk > 6 else 0
-
+def portfolio_alignment_label(score):
     if score >= 8:
         return "Strong"
     if score >= 6:
@@ -660,9 +658,118 @@ def get_portfolio_alignment(target_strategy, avg_risk, avg_momentum, avg_volatil
     return "Poor"
 
 
+def clamp_alignment_score(score):
+    return max(0, min(10, round(score, 1)))
+
+
+def calculate_portfolio_alignment_score(target_strategy, avg_risk, avg_momentum, avg_valuation, avg_volatility, largest_pct, top3_pct, defensive_exposure_pct, growth_exposure_pct, speculative_exposure_pct, below_200_share=0):
+    growth_speculative_exp = growth_exposure_pct + speculative_exposure_pct
+    above_200_share = 100 - below_200_share
+
+    if target_strategy == "Conservative Investor":
+        score = 0
+        score += 2.2 if avg_risk <= 4 else 1.2 if avg_risk <= 5 else 0
+        score += 2.0 if avg_volatility <= 30 else 1.2 if avg_volatility <= 35 else 0
+        score += 2.2 if defensive_exposure_pct >= 50 else 1.5 if defensive_exposure_pct >= 35 else 0.8 if defensive_exposure_pct >= 25 else 0
+        score += 1.2 if largest_pct <= 35 else 0.5 if largest_pct <= 45 else 0
+        score += 1.0 if top3_pct <= 75 else 0.3 if top3_pct <= 90 else 0
+        score += 1.4 if speculative_exposure_pct <= 20 else 0.6 if speculative_exposure_pct <= 30 else 0
+        score -= 1.2 if largest_pct > 35 else 0
+        score -= 1.0 if top3_pct > 75 else 0
+        score -= 1.5 if speculative_exposure_pct > 30 else 0
+        score -= 1.5 if avg_volatility > 35 else 0
+        return clamp_alignment_score(score)
+
+    if target_strategy == "Balanced Investor":
+        score = 0
+        score += 2.0 if 4 <= avg_risk <= 6 else 1.0 if 3 <= avg_risk <= 7 else 0
+        score += 1.6 if 25 <= avg_volatility <= 45 else 1.0 if avg_volatility < 25 or avg_volatility <= 55 else 0
+        score += 1.8 if growth_speculative_exp >= 35 and defensive_exposure_pct >= 20 else 1.0 if growth_speculative_exp >= 25 or defensive_exposure_pct >= 20 else 0
+        score += 1.7 if largest_pct <= 45 else 0.8 if largest_pct <= 55 else 0
+        score += 1.3 if top3_pct <= 80 else 0.4 if top3_pct <= 90 else 0
+        score += 1.0 if speculative_exposure_pct <= 35 else 0.5 if speculative_exposure_pct <= 45 else 0
+        score += 0.6 if avg_momentum >= 5 else 0
+        score -= 1.0 if largest_pct > 45 else 0
+        score -= 0.8 if top3_pct > 80 else 0
+        score -= 1.2 if speculative_exposure_pct > 45 else 0
+        score -= 1.0 if avg_momentum < 4 else 0
+        return clamp_alignment_score(score)
+
+    if target_strategy == "Aggressive Growth":
+        score = 0
+        score += 2.4 if growth_speculative_exp >= 70 else 1.8 if growth_speculative_exp >= 55 else 0.8 if growth_speculative_exp >= 40 else 0
+        score += 2.5 if avg_momentum >= 7 else 1.6 if avg_momentum >= 6 else 0.4 if avg_momentum >= 5 else 0
+        score += 1.5 if growth_exposure_pct >= 40 else 1.0 if growth_exposure_pct >= 25 else 0
+        score += 1.2 if avg_volatility >= 30 else 0.7
+        score += 1.2 if largest_pct <= 65 else 0
+        score += 1.2 if avg_risk <= 7 or avg_momentum >= 7 else 0.4 if avg_risk <= 8 else 0
+        score -= 1.8 if avg_momentum < 5 else 0
+        score -= 1.3 if largest_pct > 65 else 0
+        score -= 1.5 if avg_risk > 7 and avg_momentum < 6 else 0
+        return clamp_alignment_score(score)
+
+    if target_strategy == "Momentum Trader":
+        score = 0
+        score += 4.0 if avg_momentum >= 8 else 3.0 if avg_momentum >= 7 else 1.8 if avg_momentum >= 6 else 0
+        score += 2.2 if below_200_share <= 25 else 1.4 if below_200_share <= 40 else 0.6 if below_200_share <= 50 else 0
+        score += 1.8 if growth_speculative_exp >= 50 else 1.0 if growth_speculative_exp >= 30 else 0
+        score += 1.0 if largest_pct <= 70 else 0.5
+        score += 1.0 if avg_volatility >= 25 else 0.5
+        score -= 2.5 if avg_momentum < 5 else 0
+        score -= 1.5 if below_200_share > 50 else 0
+        return clamp_alignment_score(score)
+
+    if target_strategy == "Long-Term Compounder":
+        score = 0
+        score += 2.0 if avg_risk <= 5 else 1.1 if avg_risk <= 6 else 0
+        score += 2.2 if above_200_share >= 65 else 1.2 if above_200_share >= 45 else 0
+        score += 1.7 if avg_volatility <= 35 else 1.0 if avg_volatility <= 45 else 0
+        score += 1.2 if defensive_exposure_pct >= 25 else 0.6
+        score += 1.2 if speculative_exposure_pct <= 25 else 0.5 if speculative_exposure_pct <= 35 else 0
+        score += 1.7 if avg_momentum >= 5 else 0.5
+        score -= 1.4 if speculative_exposure_pct > 40 and largest_pct > 35 else 0
+        score -= 1.2 if avg_volatility > 45 else 0
+        score -= 1.2 if avg_momentum < 4 or below_200_share > 55 else 0
+        return clamp_alignment_score(score)
+
+    if target_strategy == "Value Hunter":
+        score = 0
+        score += 3.6 if avg_valuation >= 8 else 2.8 if avg_valuation >= 7 else 1.5 if avg_valuation >= 6 else 0
+        score += 1.6 if avg_risk <= 5 else 1.0 if avg_risk <= 6 else 0.4 if avg_risk <= 7 else 0
+        score += 1.5 if avg_volatility <= 35 else 0.8 if avg_volatility <= 45 else 0
+        score += 1.2 if defensive_exposure_pct >= 25 else 0.5
+        score += 1.3 if speculative_exposure_pct <= 30 else 0.5 if speculative_exposure_pct <= 45 else 0
+        score += 0.8 if avg_momentum <= 7 else 0.3
+        score -= 2.0 if avg_valuation < 5 else 0
+        score -= 1.4 if speculative_exposure_pct > 45 else 0
+        score -= 1.2 if avg_volatility > 45 else 0
+        score -= 1.2 if avg_momentum > 8 and avg_valuation < 6 else 0
+        return clamp_alignment_score(score)
+
+    return calculate_portfolio_alignment_score("Balanced Investor", avg_risk, avg_momentum, avg_valuation, avg_volatility, largest_pct, top3_pct, defensive_exposure_pct, growth_exposure_pct, speculative_exposure_pct, below_200_share)
+
+
+def get_portfolio_alignment(target_strategy, avg_risk, avg_momentum, avg_volatility, largest_pct, top3_pct, defensive_exposure_pct, growth_exposure_pct, speculative_exposure_pct, below_200_share=0):
+    score = calculate_portfolio_alignment_score(
+        target_strategy,
+        avg_risk,
+        avg_momentum,
+        5,
+        avg_volatility,
+        largest_pct,
+        top3_pct,
+        defensive_exposure_pct,
+        growth_exposure_pct,
+        speculative_exposure_pct,
+        below_200_share,
+    )
+    return portfolio_alignment_label(score)
+
+
 def generate_portfolio_commentary(target_strategy, portfolio_metrics, holdings):
     style = portfolio_metrics.get('style', 'Mixed / Unclear')
     alignment = portfolio_metrics.get('alignment', 'Moderate')
+    alignment_score = portfolio_metrics.get('alignment_score')
     top3 = portfolio_metrics.get('top3_pct', 0)
     largest = portfolio_metrics.get('largest_pct', 0)
     avg_momentum = portfolio_metrics.get('avg_momentum', 0)
@@ -672,20 +779,21 @@ def generate_portfolio_commentary(target_strategy, portfolio_metrics, holdings):
     growth_exp = portfolio_metrics.get('growth_exposure_pct', 0)
     defensive_exp = portfolio_metrics.get('defensive_exposure_pct', 0)
     speculative_exp = portfolio_metrics.get('speculative_exposure_pct', 0)
+    below_200_share = portfolio_metrics.get('below_200_share', 0)
 
     summary = f"This portfolio leans {style.lower()} with {top3:.0f}% of value tied to the top three positions and average volatility near {avg_volatility:.1f}%."
     if style == "Momentum-Oriented Growth":
-        summary = f"This portfolio leans growth-oriented with strong momentum exposure and higher-than-average volatility."
+        summary = f"This portfolio is built around momentum and growth leadership, with price strength carrying more of the case than valuation."
     elif style == "Concentrated Growth":
-        summary = f"This portfolio is a concentrated growth allocation, with one or two large positions driving the majority of exposure."
+        summary = f"This is a concentrated growth allocation, with the largest positions driving most of the portfolio behavior."
     elif style == "Speculative High-Volatility":
-        summary = f"This allocation is speculative and high-volatility, with meaningful exposure to names that can move sharply in either direction."
+        summary = f"This allocation is speculative and high-volatility, so outcomes are likely to be driven by sharp swings in a small set of holdings."
     elif style == "Value-Oriented":
-        summary = f"This portfolio has a value-oriented bias with stronger valuation characteristics and less momentum-driven exposure."
+        summary = f"This portfolio has a value bias, with valuation support doing more of the work than momentum strength."
     elif style == "Defensive / Conservative":
-        summary = f"This portfolio is defensive in posture, with lower risk, lower volatility, and meaningful stable exposure."
+        summary = f"This portfolio is defensive in posture, with lower volatility and meaningful capital-preservation exposure."
     elif style == "Balanced Large-Cap Blend":
-        summary = f"This portfolio feels like a balanced large-cap blend with moderate risk, diversified exposure, and reasonable volatility."
+        summary = f"This portfolio looks like a balanced large-cap blend, with moderate risk and exposure spread across steadier core holdings."
 
     strengths = []
     weaknesses = []
@@ -693,64 +801,90 @@ def generate_portfolio_commentary(target_strategy, portfolio_metrics, holdings):
     risk_assessment = []
 
     if avg_momentum >= 7:
-        strengths.append("Strong momentum exposure across the portfolio.")
+        strengths.append("Momentum is strong enough to support growth or trading-oriented strategies.")
     if growth_exp >= 35 or speculative_exp >= 35:
-        strengths.append("Clear growth/speculative tilt with upside participation potential.")
+        strengths.append("Growth exposure gives the portfolio meaningful upside participation.")
     if defensive_exp >= 25:
-        strengths.append("Supportive defensive exposure helps stabilize the allocation.")
+        strengths.append("Defensive exposure helps stabilize the allocation during weaker markets.")
+    if avg_valuation >= 7:
+        strengths.append("Valuation support is strong relative to the rest of the portfolio profile.")
     if top3 < 65:
-        strengths.append("Concentration is moderate rather than extreme.")
+        strengths.append("Position concentration is not extreme for the selected mix of holdings.")
 
     if largest >= 45:
-        weaknesses.append("The portfolio is highly concentrated in the largest positions.")
+        weaknesses.append("The largest position creates meaningful single-stock dependency.")
     if avg_volatility >= 45:
-        weaknesses.append("Volatility is elevated, increasing sensitivity to market swings.")
-    if defensive_exp < 20:
-        weaknesses.append("Defensive exposure is limited, reducing downside protection.")
-    if avg_valuation < 5 and avg_momentum >= 7:
-        weaknesses.append("Momentum is strong while valuation remains mixed, raising execution risk.")
+        weaknesses.append("Volatility is elevated, increasing sensitivity to fast market swings.")
+    if defensive_exp < 20 and target_strategy in ["Conservative Investor", "Balanced Investor", "Long-Term Compounder"]:
+        weaknesses.append("Defensive exposure is light for a strategy that values stability.")
+    if avg_valuation < 5 and avg_momentum >= 7 and target_strategy in ["Value Hunter", "Balanced Investor", "Long-Term Compounder"]:
+        weaknesses.append("Momentum is strong, but valuation support is thin for this target strategy.")
     if speculative_exp >= 35 and avg_volatility >= 40:
-        weaknesses.append("Speculative exposure and volatility are both elevated.")
+        weaknesses.append("Speculative exposure and volatility can compound drawdowns if sentiment weakens.")
+    if avg_momentum < 5 and target_strategy in ["Aggressive Growth", "Momentum Trader"]:
+        weaknesses.append("Momentum is not strong enough for the selected growth or trend-focused mandate.")
 
     if target_strategy == "Aggressive Growth":
-        suggested_adjustments.append("Keep the growth bias but reduce concentration in the largest positions.")
-        suggested_adjustments.append("Add one or two lower-volatility growth exposures to smooth upside participation.")
-        suggested_adjustments.append("Resist shifting toward defensive holdings unless the target strategy changes.")
+        suggested_adjustments.append("Maintain the growth tilt while momentum remains strong.")
+        suggested_adjustments.append("Manage concentration through position sizing rather than removing leadership exposure automatically.")
+        suggested_adjustments.append("Reduce only the weakest-trend speculative holdings first.")
     elif target_strategy == "Balanced Investor":
-        suggested_adjustments.append("Trim the largest positions if concentration exceeds 60%.")
-        suggested_adjustments.append("Add diversified, stable exposure to improve balance.")
-        suggested_adjustments.append("Preserve some growth exposure while moderating risk.")
+        suggested_adjustments.append("Reduce extreme single-position concentration if it begins to dominate results.")
+        suggested_adjustments.append("Diversify across sectors instead of relying on one growth theme.")
+        suggested_adjustments.append("Balance growth exposure with lower-volatility holdings.")
     elif target_strategy == "Conservative Investor":
-        suggested_adjustments.append("Increase defensive or lower-risk holdings to lower the overall risk profile.")
-        suggested_adjustments.append("Reduce speculative exposure and highly concentrated positions.")
-        suggested_adjustments.append("Favor names with clearer trend support above their long-term averages.")
+        suggested_adjustments.append("Reduce speculative or high-volatility exposure.")
+        suggested_adjustments.append("Bring down the largest-position concentration.")
+        suggested_adjustments.append("Add lower-volatility or defensive holdings.")
     elif target_strategy == "Momentum Trader":
-        suggested_adjustments.append("Keep the momentum bias but control position size for the largest names.")
-        suggested_adjustments.append("Prefer holdings that remain above their 200-day moving average.")
+        suggested_adjustments.append("Prioritize holdings with the strongest momentum scores.")
+        suggested_adjustments.append("Reduce sideways or weak-trend holdings.")
+        suggested_adjustments.append("Monitor breakdowns below major moving averages.")
     elif target_strategy == "Long-Term Compounder":
-        suggested_adjustments.append("Shift toward holdings with manageable risk and durable long-term trends.")
-        suggested_adjustments.append("Avoid adding speculative names that undermine consistency.")
+        suggested_adjustments.append("Improve quality and stability across the core positions.")
+        suggested_adjustments.append("Reduce speculative concentration.")
+        suggested_adjustments.append("Favor holdings with durable long-term trend support.")
     elif target_strategy == "Value Hunter":
-        suggested_adjustments.append("Focus on stronger valuation support before adding new positions.")
-        suggested_adjustments.append("Limit speculative exposure until valuations improve.")
+        suggested_adjustments.append("Prioritize holdings with better valuation scores.")
+        suggested_adjustments.append("Reduce overextended expensive momentum names.")
+        suggested_adjustments.append("Seek upside with manageable risk rather than momentum alone.")
 
     if largest >= 45:
-        risk_assessment.append("Concentration risk is the primary portfolio-level vulnerability.")
+        risk_assessment.append("Concentration risk increases downside vulnerability and reduces diversification stability.")
     if avg_volatility >= 40:
         risk_assessment.append("Elevated volatility increases downside sensitivity.")
-    if defensive_exp < 20:
+    if defensive_exp < 20 and target_strategy != "Momentum Trader":
         risk_assessment.append("Low defensive exposure may leave the portfolio exposed during stress events.")
     if speculative_exp >= 35:
         risk_assessment.append("Speculative exposure can amplify drawdowns if sentiment shifts.")
+    if below_200_share > 50:
+        risk_assessment.append("A majority of holdings below their 200-day averages weakens trend durability.")
     if not risk_assessment:
-        risk_assessment.append("Risk appears aligned with the target strategy, but monitor volatility and individual position size.")
+        risk_assessment.append(f"Risk appears aligned with {target_strategy}, with no single portfolio-level issue dominating the profile.")
+
+    alignment_reason = "the portfolio mix broadly matches the selected risk and exposure profile"
+    if target_strategy == "Conservative Investor":
+        alignment_reason = "defensive exposure and volatility control matter most for this target"
+    elif target_strategy == "Balanced Investor":
+        alignment_reason = "moderate risk, sector balance, and manageable concentration drive the fit"
+    elif target_strategy == "Aggressive Growth":
+        alignment_reason = "growth exposure and momentum are rewarded while volatility is tolerated"
+    elif target_strategy == "Momentum Trader":
+        alignment_reason = "trend strength and moving-average support carry the alignment score"
+    elif target_strategy == "Long-Term Compounder":
+        alignment_reason = "manageable risk and long-term trend durability drive the fit"
+    elif target_strategy == "Value Hunter":
+        alignment_reason = "valuation quality matters more than near-term momentum"
+
+    concentration_note = " Concentration risk increases downside vulnerability and reduces diversification stability." if largest >= 45 else ""
+    score_note = f" ({alignment_score:.1f}/10)" if isinstance(alignment_score, (int, float)) else ""
 
     return {
         "portfolio_summary": summary,
         "current_portfolio_style": f"The current allocation is best described as {style}.",
-        "strategy_alignment": f"The portfolio has {alignment.lower()} alignment with {target_strategy}.{' Concentration risk limits upside capture.' if largest >= 45 else ''}",
+        "strategy_alignment": f"The portfolio has {alignment.lower()} alignment with {target_strategy}{score_note} because {alignment_reason}.{concentration_note}",
         "strengths": strengths or ["The portfolio has a defined posture and a clear strategic tilt."],
-        "weaknesses": weaknesses or ["The portfolio could benefit from clearer diversification or lower volatility."],
+        "weaknesses": weaknesses or ["No major mismatch stands out against the selected target strategy."],
         "suggested_adjustments": suggested_adjustments or ["Validate that the current posture matches the investor's risk tolerance and adjust concentration or volatility as needed."],
         "risk_assessment": risk_assessment,
     }
@@ -857,10 +991,10 @@ def build_portfolio_metrics(target_strategy, holdings):
     defensive_val = 0
     speculative_val = 0
     for h in holdings:
-        group = get_sector_group(h.get('sector'))
-        if h['risk_score'] >= 7 or (h.get('volatility') or 0) > 55:
+        exposure_group = get_holding_exposure_group(h)
+        if exposure_group == 'Speculative':
             speculative_val += h['value']
-        elif group == 'Defensive' or h['risk_score'] <= 4:
+        elif exposure_group == 'Defensive':
             defensive_val += h['value']
         else:
             growth_val += h['value']
@@ -872,10 +1006,11 @@ def build_portfolio_metrics(target_strategy, holdings):
     below_200 = sum(1 for h in holdings if h.get('below_ma200'))
     below_200_share = below_200 / len(holdings) * 100 if holdings else 0
 
-    alignment = get_portfolio_alignment(
+    alignment_score = calculate_portfolio_alignment_score(
         target_strategy,
         avg_risk,
         avg_momentum,
+        avg_valuation,
         avg_volatility,
         largest_pct,
         top3_pct,
@@ -884,8 +1019,9 @@ def build_portfolio_metrics(target_strategy, holdings):
         speculative_exposure_pct,
         below_200_share,
     )
+    alignment = portfolio_alignment_label(alignment_score)
 
-    style = get_portfolio_style(avg_risk, avg_momentum, avg_valuation, growth_exposure_pct, defensive_exposure_pct, speculative_exposure_pct, top3_pct, avg_volatility)
+    style = get_portfolio_style(avg_risk, avg_momentum, avg_valuation, growth_exposure_pct, defensive_exposure_pct, speculative_exposure_pct, largest_pct, top3_pct, avg_volatility)
 
     warnings = []
     if largest_pct > 50:
@@ -915,6 +1051,7 @@ def build_portfolio_metrics(target_strategy, holdings):
         "speculative_exposure_pct": speculative_exposure_pct,
         "style": style,
         "alignment": alignment,
+        "alignment_score": alignment_score,
         "warnings": warnings,
         "below_200_share": below_200_share,
         "holdings": holdings,
