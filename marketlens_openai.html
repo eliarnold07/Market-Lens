@@ -256,7 +256,6 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-left: auto;
     }
 
     .pill {
@@ -272,6 +271,227 @@
       transition: all 0.15s;
     }
     .pill:hover { border-color: var(--accent-dim); color: var(--accent); }
+
+    .section-tabs {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .section-tab {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-2);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+
+    .section-tab.active {
+      background: rgba(200,169,110,0.12);
+      border-color: rgba(200,169,110,0.35);
+      color: var(--accent);
+    }
+
+    .portfolio-section {
+      display: none;
+      gap: 18px;
+    }
+
+    .portfolio-panel {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .portfolio-builder,
+    .portfolio-summary-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .portfolio-input-row,
+    .portfolio-strategy-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(180px, 1fr) minmax(140px, 1fr) 120px;
+      align-items: end;
+      margin-top: 14px;
+    }
+
+    .portfolio-input-row input,
+    .portfolio-input-row select,
+    .portfolio-strategy-row select {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-1);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    .portfolio-input-row button,
+    .portfolio-strategy-row button {
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #0d0f12;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      padding: 10px 14px;
+    }
+
+    .portfolio-holdings-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .portfolio-holding-row {
+      display: grid;
+      grid-template-columns: 1.1fr repeat(3, minmax(90px, auto)) 90px;
+      gap: 10px;
+      padding: 12px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      align-items: center;
+    }
+
+    .portfolio-holding-row span,
+    .portfolio-holding-row button {
+      color: var(--text-1);
+      font-size: 12px;
+    }
+
+    .portfolio-action {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .portfolio-action button {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-2);
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+
+    .portfolio-action button:hover {
+      border-color: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .portfolio-warning {
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text-1);
+      margin-bottom: 18px;
+    }
+
+    .portfolio-analysis-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .portfolio-analysis-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .portfolio-analysis-section h4 {
+      margin-bottom: 10px;
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .portfolio-analysis-section p,
+    .portfolio-analysis-section li {
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.7;
+    }
+
+    .portfolio-analysis-section ul {
+      padding-left: 18px;
+    }
+
+    .portfolio-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .portfolio-metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .portfolio-metric-card.metric-green {
+      border-color: rgba(74,222,128,0.25);
+      background: rgba(74,222,128,0.06);
+    }
+
+    .portfolio-metric-card.metric-green .metric-value {
+      color: var(--green);
+    }
+
+    .portfolio-metric-card.metric-yellow {
+      border-color: rgba(250,204,21,0.25);
+      background: rgba(250,204,21,0.06);
+    }
+
+    .portfolio-metric-card.metric-yellow .metric-value {
+      color: #facc15;
+    }
+
+    .portfolio-metric-card.metric-red {
+      border-color: rgba(248,113,113,0.25);
+      background: rgba(248,113,113,0.08);
+    }
+
+    .portfolio-metric-card.metric-red .metric-value {
+      color: var(--red);
+    }
+
+    .portfolio-metric-card.metric-blue {
+      border-color: rgba(96,165,250,0.25);
+      background: rgba(96,165,250,0.06);
+    }
+
+    .portfolio-metric-card.metric-blue .metric-value {
+      color: #60a5fa;
+    }
+
+    .portfolio-metric-card .metric-label {
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+
+    .portfolio-metric-card .metric-value {
+      font-size: 18px;
+      color: var(--text-1);
+    }
 
     /* ─── Content area ────────────────────────────────── */
     .content { flex: 1; overflow-y: auto; padding: 28px; }
@@ -679,6 +899,10 @@
       </select>
       <button class="btn-analyze" id="analyzeBtn" onclick="runAnalysis()">Analyze</button>
       <button class="btn-watchlist" onclick="addCurrentToWatchlist()" title="Add to watchlist">+ Watchlist</button>
+      <div class="section-tabs">
+        <button class="section-tab active" id="singleViewBtn" onclick="setActiveView('single')">Single Stock</button>
+        <button class="section-tab" id="portfolioViewBtn" onclick="setActiveView('portfolio')">Portfolio Intelligence</button>
+      </div>
       <div class="quick-pills">
         <button class="pill" onclick="quickPick('NVDA')">NVDA</button>
         <button class="pill" onclick="quickPick('AAPL')">AAPL</button>
@@ -710,6 +934,61 @@
         <div class="err-icon">⚠</div>
         <p id="errorMsg">Something went wrong. Please try again.</p>
         <button class="btn-retry" onclick="resetToIdle()">Try again</button>
+      </div>
+
+      <!-- Portfolio Intelligence -->
+      <div class="portfolio-section" id="portfolioSection">
+        <div class="portfolio-panel">
+          <div class="portfolio-builder">
+            <div class="score-label">Portfolio Builder</div>
+            <div class="portfolio-input-row">
+              <input type="text" id="portfolioTickerInput" placeholder="Ticker (e.g. AAPL)" maxlength="10" />
+              <input type="text" id="portfolioAmountInput" placeholder="Amount or shares" />
+              <select id="portfolioAmountType">
+                <option value="dollars">Dollar Amount</option>
+                <option value="shares">Share Count</option>
+              </select>
+              <button onclick="addPortfolioHolding()" id="portfolioAddBtn">Add Holding</button>
+            </div>
+
+            <div class="portfolio-strategy-row">
+              <div>
+                <div class="score-label">Target Portfolio Strategy</div>
+                <select id="portfolioStrategy">
+                  <option>Conservative Investor</option>
+                  <option>Balanced Investor</option>
+                  <option>Aggressive Growth</option>
+                  <option>Momentum Trader</option>
+                  <option>Long-Term Compounder</option>
+                  <option>Value Hunter</option>
+                </select>
+              </div>
+              <div></div>
+              <button onclick="runPortfolioAnalysis()">Analyze Portfolio</button>
+            </div>
+
+            <div class="portfolio-holdings-list" id="portfolioHoldingsList"></div>
+          </div>
+
+          <div class="portfolio-summary-card">
+            <div class="score-label">Portfolio Snapshot</div>
+            <div class="analysis-text" id="portfolioSnapshot">Add holdings and run analysis to see portfolio strategy alignment.</div>
+          </div>
+        </div>
+
+        <div class="portfolio-warning hidden" id="portfolioWarnings"></div>
+
+        <div class="portfolio-metrics-grid" id="portfolioMetricsGrid"></div>
+
+        <div class="portfolio-analysis-grid">
+          <div class="portfolio-analysis-section" id="portfolioAnalysisSummary"></div>
+          <div class="portfolio-analysis-section" id="portfolioAnalysisStyle"></div>
+          <div class="portfolio-analysis-section" id="portfolioAnalysisAlignment"></div>
+          <div class="portfolio-analysis-section" id="portfolioAnalysisStrengths"></div>
+          <div class="portfolio-analysis-section" id="portfolioAnalysisWeaknesses"></div>
+          <div class="portfolio-analysis-section" id="portfolioAnalysisAdjustments"></div>
+          <div class="portfolio-analysis-section" id="portfolioAnalysisRisk"></div>
+        </div>
       </div>
 
       <!-- Result -->
@@ -954,6 +1233,270 @@
     renderWatchlist();
   }
 
+  function setActiveView(view) {
+    const singleButton = document.getElementById('singleViewBtn');
+    const portfolioButton = document.getElementById('portfolioViewBtn');
+    const portfolioSection = document.getElementById('portfolioSection');
+    const resultSection = document.getElementById('result');
+
+    singleButton.classList.toggle('active', view === 'single');
+    portfolioButton.classList.toggle('active', view === 'portfolio');
+
+    if (view === 'portfolio') {
+      portfolioSection.style.display = 'block';
+      resultSection.style.display = 'none';
+      document.getElementById('stateIdle').classList.add('hidden');
+      document.getElementById('stateLoading').classList.add('hidden');
+      document.getElementById('stateError').classList.add('hidden');
+    } else {
+      portfolioSection.style.display = 'none';
+      if (resultSection.style.display === 'block') {
+        document.getElementById('stateIdle').classList.add('hidden');
+        document.getElementById('stateLoading').classList.add('hidden');
+        document.getElementById('stateError').classList.add('hidden');
+      } else {
+        setState('idle');
+      }
+    }
+  }
+
+  let portfolioHoldings = [];
+
+  function renderPortfolioHoldings() {
+    const container = document.getElementById('portfolioHoldingsList');
+    container.innerHTML = '';
+    if (!portfolioHoldings.length) {
+      container.innerHTML = '<div style="padding:14px 12px;color:var(--text-3);font-size:13px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.02);">No holdings added yet. Add tickers to build your portfolio.</div>';
+      return;
+    }
+
+    portfolioHoldings.forEach((holding, index) => {
+      const row = document.createElement('div');
+      row.className = 'portfolio-holding-row';
+      row.innerHTML = `
+        <span><strong>${holding.ticker}</strong><br><small>${holding.amount} ${holding.unit === 'shares' ? 'shares' : 'USD'}</small></span>
+        <span>${holding.current_price ? '$' + holding.current_price.toFixed(2) : 'N/A'}</span>
+        <span>${holding.value ? '$' + holding.value.toFixed(0) : 'N/A'}</span>
+        <span>${holding.risk_score ? holding.risk_score.toFixed(1) : '—'}</span>
+        <div class="portfolio-action">
+          <button onclick="removePortfolioHolding(${index})">Remove</button>
+        </div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function updatePortfolioSnapshot() {
+    const snapshot = document.getElementById('portfolioSnapshot');
+    if (!portfolioHoldings.length) {
+      snapshot.textContent = 'No holdings have been added yet. Add tickers to begin portfolio intelligence analysis.';
+      return;
+    }
+    const totalValue = portfolioHoldings.reduce((sum, h) => sum + (h.value || 0), 0);
+    snapshot.textContent = `Portfolio contains ${portfolioHoldings.length} holdings with estimated total exposure of $${totalValue.toFixed(0)}.`;
+  }
+
+  function addPortfolioHolding() {
+    const tickerInput = document.getElementById('portfolioTickerInput');
+    const amountInput = document.getElementById('portfolioAmountInput');
+    const amountType = document.getElementById('portfolioAmountType').value;
+    const ticker = tickerInput.value.trim().toUpperCase();
+    const amount = parseFloat(amountInput.value.trim());
+
+    const warningEl = document.getElementById('portfolioWarnings');
+    warningEl.classList.add('hidden');
+    warningEl.textContent = '';
+
+    if (!ticker) {
+      warningEl.textContent = 'Please enter a ticker symbol.';
+      warningEl.classList.remove('hidden');
+      return;
+    }
+    if (Number.isNaN(amount) || amount <= 0) {
+      warningEl.textContent = 'Enter a positive dollar amount or share count.';
+      warningEl.classList.remove('hidden');
+      return;
+    }
+
+    const existing = portfolioHoldings.find(h => h.ticker === ticker);
+    if (existing) {
+      existing.amount = amount;
+      existing.unit = amountType;
+    } else {
+      portfolioHoldings.push({ ticker, amount, unit: amountType, current_price: null, value: 0, risk_score: 0 });
+    }
+
+    tickerInput.value = '';
+    amountInput.value = '';
+    document.getElementById('portfolioAmountType').value = 'dollars';
+    renderPortfolioHoldings();
+    updatePortfolioSnapshot();
+  }
+
+  function removePortfolioHolding(index) {
+    portfolioHoldings.splice(index, 1);
+    renderPortfolioHoldings();
+    updatePortfolioSnapshot();
+  }
+
+  function getPortfolioMetricClass(label, value) {
+    const normalizedValue = (value || '').toString().toLowerCase();
+    if (label.includes('risk')) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        if (num <= 4) return 'metric-green';
+        if (num <= 6) return 'metric-yellow';
+        return 'metric-red';
+      }
+    }
+
+    if (label.includes('momentum') || label.includes('valuation')) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        if (num >= 7) return 'metric-green';
+        if (num >= 5) return 'metric-yellow';
+        return 'metric-red';
+      }
+    }
+
+    if (label.includes('volatility')) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        if (num <= 35) return 'metric-green';
+        if (num <= 55) return 'metric-yellow';
+        return 'metric-red';
+      }
+    }
+
+    if (label.includes('largest') || label.includes('top 3') || label.includes('concentration')) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        if (num <= 35) return 'metric-green';
+        if (num <= 65) return 'metric-yellow';
+        return 'metric-red';
+      }
+    }
+
+    if (label === 'Alignment') {
+      if (normalizedValue.includes('strong')) return 'metric-green';
+      if (normalizedValue.includes('moderate')) return 'metric-yellow';
+      return 'metric-red';
+    }
+
+    if (label === 'Diversification') {
+      if (normalizedValue.includes('high')) return 'metric-green';
+      if (normalizedValue.includes('moderate')) return 'metric-yellow';
+      return 'metric-red';
+    }
+
+    return 'metric-blue';
+  }
+
+  function renderPortfolioMetrics(metrics) {
+    const grid = document.getElementById('portfolioMetricsGrid');
+    grid.innerHTML = '';
+    if (!metrics) {
+      grid.innerHTML = '<div style="padding:14px 12px;color:var(--text-3);font-size:13px;">No portfolio metrics available.</div>';
+      return;
+    }
+
+    const items = [
+      { label: 'Total Value', value: metrics.total_value ? `$${metrics.total_value.toFixed(0)}` : 'N/A' },
+      { label: 'Largest Position', value: metrics.largest_pct ? `${metrics.largest_pct.toFixed(1)}%` : 'N/A' },
+      { label: 'Top 3 Concentration', value: metrics.top3_pct ? `${metrics.top3_pct.toFixed(1)}%` : 'N/A' },
+      { label: 'Average Risk', value: metrics.avg_risk ? metrics.avg_risk.toFixed(1) : 'N/A' },
+      { label: 'Average Momentum', value: metrics.avg_momentum ? metrics.avg_momentum.toFixed(1) : 'N/A' },
+      { label: 'Average Valuation', value: metrics.avg_valuation ? metrics.avg_valuation.toFixed(1) : 'N/A' },
+      { label: 'Average Volatility', value: metrics.avg_volatility ? `${metrics.avg_volatility.toFixed(1)}%` : 'N/A' },
+      { label: 'Portfolio Style', value: metrics.style || 'N/A' },
+      { label: 'Alignment', value: metrics.alignment || 'N/A' },
+      { label: 'Diversification', value: metrics.diversification_rating || 'N/A' },
+      { label: 'Growth Exposure', value: metrics.growth_exposure_pct ? `${metrics.growth_exposure_pct.toFixed(1)}%` : 'N/A' },
+      { label: 'Defensive Exposure', value: metrics.defensive_exposure_pct ? `${metrics.defensive_exposure_pct.toFixed(1)}%` : 'N/A' },
+      { label: 'Speculative Exposure', value: metrics.speculative_exposure_pct ? `${metrics.speculative_exposure_pct.toFixed(1)}%` : 'N/A' },
+      { label: 'Top Sectors', value: metrics.top_sectors || 'N/A' },
+    ];
+
+    items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = `portfolio-metric-card ${getPortfolioMetricClass(item.label, item.value)}`;
+      card.innerHTML = `<div class="metric-label">${item.label}</div><div class="metric-value">${item.value}</div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function renderPortfolioAnalysis(report) {
+    document.getElementById('portfolioAnalysisSummary').innerHTML = `<h4>Portfolio Summary</h4><p>${report.portfolio_summary || 'No summary generated.'}</p>`;
+    document.getElementById('portfolioAnalysisStyle').innerHTML = `<h4>Portfolio Style</h4><p>${report.current_portfolio_style || 'No style data available.'}</p>`;
+    document.getElementById('portfolioAnalysisAlignment').innerHTML = `<h4>Strategy Alignment</h4><p>${report.strategy_alignment || 'No alignment commentary available.'}</p>`;
+    document.getElementById('portfolioAnalysisStrengths').innerHTML = `<h4>Strengths</h4><ul>${(report.strengths || []).map(item => `<li>${item}</li>`).join('') || '<li>No strengths provided.</li>'}</ul>`;
+    document.getElementById('portfolioAnalysisWeaknesses').innerHTML = `<h4>Weaknesses</h4><ul>${(report.weaknesses || []).map(item => `<li>${item}</li>`).join('') || '<li>No weaknesses provided.</li>'}</ul>`;
+    document.getElementById('portfolioAnalysisAdjustments').innerHTML = `<h4>Suggested Adjustments</h4><ul>${(report.suggested_adjustments || []).map(item => `<li>${item}</li>`).join('') || '<li>No adjustment ideas generated.</li>'}</ul>`;
+    document.getElementById('portfolioAnalysisRisk').innerHTML = `<h4>Risk Assessment</h4><ul>${(report.risk_assessment || []).map(item => `<li>${item}</li>`).join('') || '<li>No risk insights provided.</li>'}</ul>`;
+  }
+
+  function runPortfolioAnalysis() {
+    if (!portfolioHoldings.length) {
+      const warningEl = document.getElementById('portfolioWarnings');
+      warningEl.textContent = 'Add at least one holding before running portfolio intelligence.';
+      warningEl.classList.remove('hidden');
+      return;
+    }
+
+    setActiveView('portfolio');
+    setState('loading');
+    document.getElementById('loadingLabel').textContent = 'ANALYZING PORTFOLIO…';
+
+    const btn = document.getElementById('portfolioAddBtn');
+    btn.disabled = true;
+    btn.textContent = 'Analyzing…';
+
+    fetch(`${BACKEND_URL}/api/portfolio-analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target_strategy: document.getElementById('portfolioStrategy').value,
+        holdings: portfolioHoldings.map(h => ({ ticker: h.ticker, amount: h.amount, unit: h.unit }))
+      })
+    })
+    .then(r => {
+      if (!r.ok) { throw new Error(`${r.status} ${r.statusText}`); }
+      return r.json();
+    })
+    .then(data => {
+      if (data.error) { throw new Error(data.error); }
+      if (Array.isArray(data.portfolio_holdings) && data.portfolio_holdings.length) {
+        portfolioHoldings = data.portfolio_holdings.map(h => ({
+          ticker: h.ticker,
+          amount: h.input_amount,
+          unit: h.unit,
+          current_price: h.current_price || 0,
+          value: h.value || 0,
+          risk_score: h.risk_score || 0,
+        }));
+      }
+      renderPortfolioHoldings();
+      updatePortfolioSnapshot();
+      renderPortfolioMetrics(data.portfolio_metrics);
+      document.getElementById('portfolioWarnings').classList.toggle('hidden', !(data.portfolio_metrics && data.portfolio_metrics.warnings && data.portfolio_metrics.warnings.length));
+      if (data.portfolio_metrics && data.portfolio_metrics.warnings && data.portfolio_metrics.warnings.length) {
+        document.getElementById('portfolioWarnings').textContent = data.portfolio_metrics.warnings.join(' ');
+      }
+      renderPortfolioAnalysis(data.portfolio_analysis || {});
+    })
+    .catch(err => {
+      setState('error');
+      document.getElementById('errorMsg').textContent = err.message.includes('Failed to fetch') ? 'Backend not running. Make sure to start: python backend_openai.py' : err.message;
+      console.error('Portfolio analysis error:', err);
+    })
+    .finally(() => {
+      clearInterval(loadingInterval);
+      document.getElementById('stateLoading').classList.add('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Add Holding';
+    });
+  }
+
   function watchlistAnalyze(ticker) {
     document.getElementById('tickerInput').value = ticker;
     runAnalysis();
@@ -1180,6 +1723,7 @@
   }
 
   function runAnalysis() {
+    setActiveView('single');
     const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
     if (!ticker) { document.getElementById('tickerInput').focus(); return; }
 
@@ -1338,7 +1882,8 @@
   });
 
   // ── Init ──────────────────────────────────────────────────
-  renderWatchlist();</script>
+  renderWatchlist();
+  setActiveView('single');</script>
 
 </body>
 </html>

@@ -573,6 +573,446 @@ def build_market_context(ticker, info, current_price, price_change_pct, market_c
     }
 
 
+def get_sector_group(sector):
+    if not sector:
+        return "Other"
+
+    defensive = {"Healthcare", "Utilities", "Consumer Defensive", "Real Estate"}
+    growth = {"Technology", "Consumer Cyclical", "Communication Services", "Industrials"}
+    speculative = {"Financial Services", "Materials", "Energy", "Communication Services"}
+
+    if sector in defensive:
+        return "Defensive"
+    if sector in growth:
+        return "Growth"
+    if sector in speculative:
+        return "Speculative"
+    return "Balanced"
+
+
+def get_diversification_rating(num_holdings, largest_pct, top3_pct):
+    if num_holdings >= 8 and largest_pct < 25 and top3_pct < 60:
+        return "High"
+    if num_holdings >= 5 and largest_pct < 35 and top3_pct < 70:
+        return "Moderate"
+    return "Low"
+
+
+def get_portfolio_style(avg_risk, avg_momentum, avg_valuation, growth_exposure_pct, defensive_exposure_pct, speculative_exposure_pct, top3_pct, avg_volatility):
+    if top3_pct >= 45 and (growth_exposure_pct >= 35 or speculative_exposure_pct >= 35):
+        return "Concentrated Growth"
+    if speculative_exposure_pct >= 40 and avg_volatility >= 40:
+        return "Speculative High-Volatility"
+    if avg_momentum >= 7 and avg_risk >= 5:
+        return "Momentum-Oriented Growth"
+    if avg_valuation >= 7 and avg_momentum <= 6:
+        return "Value-Oriented"
+    if avg_risk <= 4 and avg_volatility <= 30:
+        return "Defensive / Conservative"
+    if 4 < avg_risk <= 6 and top3_pct < 65:
+        return "Balanced Large-Cap Blend"
+    return "Mixed / Unclear"
+
+
+def get_portfolio_alignment(target_strategy, avg_risk, avg_momentum, avg_volatility, largest_pct, top3_pct, defensive_exposure_pct, growth_exposure_pct, speculative_exposure_pct, below_200_share=0):
+    score = 0
+    if target_strategy == "Conservative Investor":
+        score += 2 if avg_risk <= 4 else 1 if avg_risk <= 5 else 0
+        score += 2 if avg_volatility <= 35 else 1 if avg_volatility <= 45 else 0
+        score += 2 if defensive_exposure_pct >= 35 else 1 if defensive_exposure_pct >= 25 else 0
+        score += 1 if largest_pct < 40 else 0
+        score += 1 if speculative_exposure_pct < 25 else 0
+    elif target_strategy == "Balanced Investor":
+        score += 2 if 4 <= avg_risk <= 6 else 1 if 3 <= avg_risk <= 7 else 0
+        score += 2 if 5 <= avg_momentum <= 8 else 1 if 4 <= avg_momentum <= 9 else 0
+        score += 2 if avg_volatility <= 45 else 1 if avg_volatility <= 55 else 0
+        score += 2 if top3_pct < 60 else 1 if top3_pct < 70 else 0
+        score += 1 if speculative_exposure_pct < 35 else 0
+    elif target_strategy == "Aggressive Growth":
+        score += 2 if avg_momentum >= 7 else 1 if avg_momentum >= 6 else 0
+        score += 2 if growth_exposure_pct >= 40 or speculative_exposure_pct >= 35 else 1 if growth_exposure_pct >= 30 or speculative_exposure_pct >= 25 else 0
+        score += 1 if avg_risk <= 7 else 0
+        score += 1 if avg_momentum >= 7 and avg_risk <= 8 else 0
+        score += 2 if top3_pct < 80 else 1 if top3_pct < 90 else 0
+        score += 1 if largest_pct < 60 else 0
+    elif target_strategy == "Momentum Trader":
+        score += 3 if avg_momentum >= 8 else 2 if avg_momentum >= 7 else 1 if avg_momentum >= 6 else 0
+        score += 2 if below_200_share <= 40 else 1 if below_200_share <= 60 else 0
+        score += 1 if avg_risk <= 7 else 0
+        score += 1 if top3_pct < 70 else 0
+    elif target_strategy == "Long-Term Compounder":
+        score += 2 if avg_risk <= 5 else 1 if avg_risk <= 6 else 0
+        score += 2 if below_200_share <= 40 else 1 if below_200_share <= 60 else 0
+        score += 2 if avg_volatility <= 45 else 1 if avg_volatility <= 55 else 0
+        score += 1 if speculative_exposure_pct <= 30 else 0
+    elif target_strategy == "Value Hunter":
+        score += 3 if avg_valuation >= 7 else 2 if avg_valuation >= 6 else 1 if avg_valuation >= 5 else 0
+        score += 2 if avg_risk <= 6 else 1 if avg_risk <= 7 else 0
+        score += 1 if speculative_exposure_pct <= 35 else 0
+        score -= 1 if avg_momentum > 8 and avg_risk > 6 else 0
+
+    if score >= 8:
+        return "Strong"
+    if score >= 6:
+        return "Moderate"
+    if score >= 4:
+        return "Weak / Mixed"
+    return "Poor"
+
+
+def generate_portfolio_commentary(target_strategy, portfolio_metrics, holdings):
+    style = portfolio_metrics.get('style', 'Mixed / Unclear')
+    alignment = portfolio_metrics.get('alignment', 'Moderate')
+    top3 = portfolio_metrics.get('top3_pct', 0)
+    largest = portfolio_metrics.get('largest_pct', 0)
+    avg_momentum = portfolio_metrics.get('avg_momentum', 0)
+    avg_risk = portfolio_metrics.get('avg_risk', 0)
+    avg_valuation = portfolio_metrics.get('avg_valuation', 0)
+    avg_volatility = portfolio_metrics.get('avg_volatility', 0)
+    growth_exp = portfolio_metrics.get('growth_exposure_pct', 0)
+    defensive_exp = portfolio_metrics.get('defensive_exposure_pct', 0)
+    speculative_exp = portfolio_metrics.get('speculative_exposure_pct', 0)
+
+    summary = f"This portfolio leans {style.lower()} with {top3:.0f}% of value tied to the top three positions and average volatility near {avg_volatility:.1f}%."
+    if style == "Momentum-Oriented Growth":
+        summary = f"This portfolio leans growth-oriented with strong momentum exposure and higher-than-average volatility."
+    elif style == "Concentrated Growth":
+        summary = f"This portfolio is a concentrated growth allocation, with one or two large positions driving the majority of exposure."
+    elif style == "Speculative High-Volatility":
+        summary = f"This allocation is speculative and high-volatility, with meaningful exposure to names that can move sharply in either direction."
+    elif style == "Value-Oriented":
+        summary = f"This portfolio has a value-oriented bias with stronger valuation characteristics and less momentum-driven exposure."
+    elif style == "Defensive / Conservative":
+        summary = f"This portfolio is defensive in posture, with lower risk, lower volatility, and meaningful stable exposure."
+    elif style == "Balanced Large-Cap Blend":
+        summary = f"This portfolio feels like a balanced large-cap blend with moderate risk, diversified exposure, and reasonable volatility."
+
+    strengths = []
+    weaknesses = []
+    suggested_adjustments = []
+    risk_assessment = []
+
+    if avg_momentum >= 7:
+        strengths.append("Strong momentum exposure across the portfolio.")
+    if growth_exp >= 35 or speculative_exp >= 35:
+        strengths.append("Clear growth/speculative tilt with upside participation potential.")
+    if defensive_exp >= 25:
+        strengths.append("Supportive defensive exposure helps stabilize the allocation.")
+    if top3 < 65:
+        strengths.append("Concentration is moderate rather than extreme.")
+
+    if largest >= 45:
+        weaknesses.append("The portfolio is highly concentrated in the largest positions.")
+    if avg_volatility >= 45:
+        weaknesses.append("Volatility is elevated, increasing sensitivity to market swings.")
+    if defensive_exp < 20:
+        weaknesses.append("Defensive exposure is limited, reducing downside protection.")
+    if avg_valuation < 5 and avg_momentum >= 7:
+        weaknesses.append("Momentum is strong while valuation remains mixed, raising execution risk.")
+    if speculative_exp >= 35 and avg_volatility >= 40:
+        weaknesses.append("Speculative exposure and volatility are both elevated.")
+
+    if target_strategy == "Aggressive Growth":
+        suggested_adjustments.append("Keep the growth bias but reduce concentration in the largest positions.")
+        suggested_adjustments.append("Add one or two lower-volatility growth exposures to smooth upside participation.")
+        suggested_adjustments.append("Resist shifting toward defensive holdings unless the target strategy changes.")
+    elif target_strategy == "Balanced Investor":
+        suggested_adjustments.append("Trim the largest positions if concentration exceeds 60%.")
+        suggested_adjustments.append("Add diversified, stable exposure to improve balance.")
+        suggested_adjustments.append("Preserve some growth exposure while moderating risk.")
+    elif target_strategy == "Conservative Investor":
+        suggested_adjustments.append("Increase defensive or lower-risk holdings to lower the overall risk profile.")
+        suggested_adjustments.append("Reduce speculative exposure and highly concentrated positions.")
+        suggested_adjustments.append("Favor names with clearer trend support above their long-term averages.")
+    elif target_strategy == "Momentum Trader":
+        suggested_adjustments.append("Keep the momentum bias but control position size for the largest names.")
+        suggested_adjustments.append("Prefer holdings that remain above their 200-day moving average.")
+    elif target_strategy == "Long-Term Compounder":
+        suggested_adjustments.append("Shift toward holdings with manageable risk and durable long-term trends.")
+        suggested_adjustments.append("Avoid adding speculative names that undermine consistency.")
+    elif target_strategy == "Value Hunter":
+        suggested_adjustments.append("Focus on stronger valuation support before adding new positions.")
+        suggested_adjustments.append("Limit speculative exposure until valuations improve.")
+
+    if largest >= 45:
+        risk_assessment.append("Concentration risk is the primary portfolio-level vulnerability.")
+    if avg_volatility >= 40:
+        risk_assessment.append("Elevated volatility increases downside sensitivity.")
+    if defensive_exp < 20:
+        risk_assessment.append("Low defensive exposure may leave the portfolio exposed during stress events.")
+    if speculative_exp >= 35:
+        risk_assessment.append("Speculative exposure can amplify drawdowns if sentiment shifts.")
+    if not risk_assessment:
+        risk_assessment.append("Risk appears aligned with the target strategy, but monitor volatility and individual position size.")
+
+    return {
+        "portfolio_summary": summary,
+        "current_portfolio_style": f"The current allocation is best described as {style}.",
+        "strategy_alignment": f"The portfolio has {alignment.lower()} alignment with {target_strategy}.{' Concentration risk limits upside capture.' if largest >= 45 else ''}",
+        "strengths": strengths or ["The portfolio has a defined posture and a clear strategic tilt."],
+        "weaknesses": weaknesses or ["The portfolio could benefit from clearer diversification or lower volatility."],
+        "suggested_adjustments": suggested_adjustments or ["Validate that the current posture matches the investor's risk tolerance and adjust concentration or volatility as needed."],
+        "risk_assessment": risk_assessment,
+    }
+
+
+def fallback_portfolio_analysis(target_strategy, portfolio_summary, portfolio_metrics, holdings):
+    return generate_portfolio_commentary(target_strategy, portfolio_metrics, holdings)
+
+
+def generate_portfolio_openai_report(target_strategy, portfolio_metrics, holdings):
+    if client is None:
+        return fallback_portfolio_analysis(target_strategy, portfolio_metrics, portfolio_metrics.get('holdings', []))
+
+    system_prompt = """
+You are an institutional portfolio strategist writing concise portfolio intelligence for a strategy-aligned investor.
+Do not provide financial advice or return predictions.
+Use a professional tone and keep the analysis structured.
+Return ONLY valid JSON with no markdown.
+"""
+
+    holding_lines = []
+    for h in holdings:
+        holding_lines.append(
+            f"{h['ticker']}: sector={h.get('sector','N/A')}, value=${h['value']:.2f}, risk={h['risk_score']:.1f}, momentum={h['momentum_score']:.1f}, valuation={h['valuation_score']:.1f}, volatility={h.get('volatility',0):.1f}%, profile={h.get('market_profile','N/A')}"
+        )
+
+    user_prompt = f"""
+Review a portfolio targeting {target_strategy}.
+
+Holdings:
+{chr(10).join(holding_lines)}
+
+Portfolio metrics:
+- Total value: ${portfolio_metrics['total_value']:.2f}
+- Largest holding: {portfolio_metrics['largest_pct']:.1f}%
+- Top 3 holdings: {portfolio_metrics['top3_pct']:.1f}%
+- Average risk: {portfolio_metrics['avg_risk']:.2f}
+- Average momentum: {portfolio_metrics['avg_momentum']:.2f}
+- Average valuation: {portfolio_metrics['avg_valuation']:.2f}
+- Average volatility: {portfolio_metrics['avg_volatility']:.2f}%
+- Sector concentration: {portfolio_metrics['top_sectors']}
+- Diversification: {portfolio_metrics['diversification_rating']}
+- Growth exposure: {portfolio_metrics['growth_exposure_pct']:.1f}%
+- Defensive exposure: {portfolio_metrics['defensive_exposure_pct']:.1f}%
+- Speculative exposure: {portfolio_metrics['speculative_exposure_pct']:.1f}%
+- Portfolio style: {portfolio_metrics['style']}
+- Alignment: {portfolio_metrics['alignment']}
+
+Write concise sections:
+1. Portfolio Summary
+2. Current Portfolio Style
+3. Strategy Alignment
+4. Strengths
+5. Weaknesses
+6. Suggested Adjustments
+7. Risk Assessment
+
+Keep content direct, professional, and strategy-focused.
+"""
+
+    response = client.chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt.strip()},
+            {"role": "user", "content": user_prompt.strip()},
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.4,
+    )
+
+    raw = response.choices[0].message.content
+    report = json.loads(raw)
+    return {
+        "portfolio_summary": report.get("portfolio_summary", ""),
+        "current_portfolio_style": report.get("current_portfolio_style", ""),
+        "strategy_alignment": report.get("strategy_alignment", ""),
+        "strengths": report.get("strengths", []),
+        "weaknesses": report.get("weaknesses", []),
+        "suggested_adjustments": report.get("suggested_adjustments", []),
+        "risk_assessment": report.get("risk_assessment", []),
+    }
+
+
+def build_portfolio_metrics(target_strategy, holdings):
+    total_value = sum(h['value'] for h in holdings)
+    sorted_holdings = sorted(holdings, key=lambda x: x['value'], reverse=True)
+    largest_pct = (sorted_holdings[0]['value'] / total_value * 100) if total_value else 0
+    top3_pct = sum(h['value'] for h in sorted_holdings[:3]) / total_value * 100 if total_value else 0
+
+    avg_risk = sum(h['risk_score'] * h['value'] for h in holdings) / total_value if total_value else 0
+    avg_momentum = sum(h['momentum_score'] * h['value'] for h in holdings) / total_value if total_value else 0
+    avg_valuation = sum(h['valuation_score'] * h['value'] for h in holdings) / total_value if total_value else 0
+    avg_volatility = sum((h.get('volatility') or 0) * h['value'] for h in holdings) / total_value if total_value else 0
+
+    sector_totals = {}
+    for h in holdings:
+        sector = h.get('sector') or 'Other'
+        sector_totals[sector] = sector_totals.get(sector, 0) + h['value']
+    top_sectors = sorted(sector_totals.items(), key=lambda x: x[1], reverse=True)
+    top_sector_pct = (top_sectors[0][1] / total_value * 100) if total_value and top_sectors else 0
+    sector_concentration = {s: round(v / total_value * 100, 1) for s, v in top_sectors[:5]} if total_value else {}
+
+    growth_val = 0
+    defensive_val = 0
+    speculative_val = 0
+    for h in holdings:
+        group = get_sector_group(h.get('sector'))
+        if h['risk_score'] >= 7 or (h.get('volatility') or 0) > 55:
+            speculative_val += h['value']
+        elif group == 'Defensive' or h['risk_score'] <= 4:
+            defensive_val += h['value']
+        else:
+            growth_val += h['value']
+
+    growth_exposure_pct = growth_val / total_value * 100 if total_value else 0
+    defensive_exposure_pct = defensive_val / total_value * 100 if total_value else 0
+    speculative_exposure_pct = speculative_val / total_value * 100 if total_value else 0
+
+    below_200 = sum(1 for h in holdings if h.get('below_ma200'))
+    below_200_share = below_200 / len(holdings) * 100 if holdings else 0
+
+    alignment = get_portfolio_alignment(
+        target_strategy,
+        avg_risk,
+        avg_momentum,
+        avg_volatility,
+        largest_pct,
+        top3_pct,
+        defensive_exposure_pct,
+        growth_exposure_pct,
+        speculative_exposure_pct,
+        below_200_share,
+    )
+
+    style = get_portfolio_style(avg_risk, avg_momentum, avg_valuation, growth_exposure_pct, defensive_exposure_pct, speculative_exposure_pct, top3_pct, avg_volatility)
+
+    warnings = []
+    if largest_pct > 50:
+        warnings.append("Largest holding exceeds 50% of the portfolio.")
+    if top3_pct > 80:
+        warnings.append("Top 3 holdings exceed 80% concentration.")
+    if avg_volatility > 60:
+        warnings.append("Average volatility is extremely high.")
+    if below_200_share > 50:
+        warnings.append("More than half of holdings are below their 200-day moving averages.")
+    if top_sector_pct > 40:
+        warnings.append("Single sector concentration exceeds 40%.")
+
+    return {
+        "total_value": total_value,
+        "largest_pct": largest_pct,
+        "top3_pct": top3_pct,
+        "avg_risk": avg_risk,
+        "avg_momentum": avg_momentum,
+        "avg_valuation": avg_valuation,
+        "avg_volatility": avg_volatility,
+        "sector_concentration": sector_concentration,
+        "top_sectors": ", ".join(f"{s} {p:.0f}%" for s, p in list(sector_concentration.items())[:3]),
+        "diversification_rating": get_diversification_rating(len(holdings), largest_pct, top3_pct),
+        "growth_exposure_pct": growth_exposure_pct,
+        "defensive_exposure_pct": defensive_exposure_pct,
+        "speculative_exposure_pct": speculative_exposure_pct,
+        "style": style,
+        "alignment": alignment,
+        "warnings": warnings,
+        "below_200_share": below_200_share,
+        "holdings": holdings,
+    }
+
+
+def generate_portfolio_upsert_holding(holding, target_strategy):
+    ticker = holding.get('ticker', '').upper().strip()
+    amount = safe_float(holding.get('amount')) or 0
+    unit = holding.get('unit', 'dollars')
+
+    stock = yf.Ticker(ticker)
+    info = stock.info
+    if not info.get('longName'):
+        raise ValueError(f'Ticker "{ticker}" not found')
+
+    current_price = safe_float(info.get('currentPrice')) or safe_float(info.get('regularMarketPrice')) or 0
+    if unit == 'shares':
+        shares = amount
+        position_value = shares * current_price
+    else:
+        shares = amount / current_price if current_price else 0
+        position_value = amount
+
+    history = stock.history(period='1y', interval='1d')
+    close_series = history['Close'] if 'Close' in history else history['close'] if 'close' in history else None
+    volume_series = history['Volume'] if 'Volume' in history else history['volume'] if 'volume' in history else None
+
+    ma_50 = moving_average(close_series, 50) if close_series is not None else None
+    ma_200 = moving_average(close_series, 200) if close_series is not None else None
+    rsi = compute_rsi(close_series) if close_series is not None else None
+    volatility_30d = compute_volatility(close_series, 30) if close_series is not None else None
+    volume_trend = compute_volume_trend(volume_series) if volume_series is not None else None
+
+    price_change_pct = 0
+    if current_price and safe_float(info.get('previousClose')):
+        price_change_pct = (current_price - safe_float(info.get('previousClose'))) / safe_float(info.get('previousClose')) * 100
+
+    fifty_two_week_high = safe_float(info.get('fiftyTwoWeekHigh'))
+    distance_from_52w_high = (fifty_two_week_high - current_price) / fifty_two_week_high * 100 if fifty_two_week_high else None
+
+    risk_momentum = calculate_strategy_engine(
+        target_strategy,
+        current_price,
+        price_change_pct,
+        safe_float(info.get('trailingPE')),
+        safe_float(info.get('targetMeanPrice')),
+        ma_50,
+        ma_200,
+        rsi,
+        volatility_30d,
+        distance_from_52w_high,
+        volume_trend,
+    )
+
+    return {
+        'ticker': ticker,
+        'company': info.get('longName', ticker),
+        'sector': info.get('sector') or 'Other',
+        'industry': info.get('industry') or 'Other',
+        'unit': unit,
+        'input_amount': amount,
+        'current_price': current_price,
+        'shares': shares,
+        'value': position_value,
+        'risk_score': risk_momentum['risk_score'],
+        'momentum_score': risk_momentum['momentum_score'],
+        'valuation_score': risk_momentum['valuation_score'],
+        'volatility': volatility_30d,
+        'market_profile': risk_momentum['market_profile'],
+        'below_ma200': ma_200 is not None and current_price is not None and current_price < ma_200,
+    }
+
+
+def generate_portfolio_report(target_strategy, holdings):
+    portfolio_holdings = []
+    warnings = []
+    for holding in holdings:
+        try:
+            portfolio_holdings.append(generate_portfolio_upsert_holding(holding, target_strategy))
+        except ValueError as e:
+            warnings.append(str(e))
+
+    if not portfolio_holdings:
+        raise ValueError('No valid holdings found. Check the ticker symbols and try again.')
+
+    portfolio_metrics = build_portfolio_metrics(target_strategy, portfolio_holdings)
+    if warnings:
+        portfolio_metrics['warnings'] = portfolio_metrics.get('warnings', []) + warnings
+
+    commentary = generate_portfolio_commentary(target_strategy, portfolio_metrics, portfolio_holdings)
+    return {
+        'holdings': portfolio_holdings,
+        'metrics': portfolio_metrics,
+        'analysis': commentary,
+    }
+
+
 def fallback_analysis(ticker, company_name, data):
     """Used if OpenAI is unavailable, so the app still works."""
     price_change = data.get("price_change_pct", 0)
@@ -864,6 +1304,31 @@ def analyze():
 
     except json.JSONDecodeError:
         return jsonify({"error": "OpenAI returned invalid JSON. Try again."}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/portfolio-analyze", methods=["POST"])
+def portfolio_analyze():
+    try:
+        data = request.json or {}
+        holdings = data.get('holdings', [])
+        target_strategy = data.get('target_strategy', 'Balanced Investor')
+
+        if not holdings or not isinstance(holdings, list):
+            return jsonify({"error": "Holdings must be provided as a non-empty list."}), 400
+
+        report = generate_portfolio_report(target_strategy, holdings)
+        return jsonify({
+            "target_strategy": target_strategy,
+            "portfolio_holdings": report['holdings'],
+            "portfolio_metrics": report['metrics'],
+            "portfolio_analysis": report['analysis'],
+        })
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except json.JSONDecodeError:
+        return jsonify({"error": "Failed to parse OpenAI response."}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
