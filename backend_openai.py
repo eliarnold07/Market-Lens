@@ -766,6 +766,229 @@ def get_portfolio_alignment(target_strategy, avg_risk, avg_momentum, avg_volatil
     return portfolio_alignment_label(score)
 
 
+def get_weighted_holdings(holdings):
+    total_value = sum(h.get('value') or 0 for h in holdings)
+    weighted = []
+    for holding in holdings:
+        position = dict(holding)
+        position['portfolio_pct'] = ((holding.get('value') or 0) / total_value * 100) if total_value else 0
+        position['exposure_group'] = get_holding_exposure_group(holding)
+        weighted.append(position)
+    return sorted(weighted, key=lambda h: h.get('portfolio_pct', 0), reverse=True)
+
+
+def get_alignment_contributors(target_strategy, weighted_holdings):
+    contributors = []
+    for h in weighted_holdings:
+        ticker = h.get('ticker', 'A holding')
+        pct = h.get('portfolio_pct', 0)
+        momentum = h.get('momentum_score') or 0
+        risk = h.get('risk_score') or 0
+        valuation = h.get('valuation_score') or 0
+        volatility = h.get('volatility') or 0
+        exposure = h.get('exposure_group')
+
+        if target_strategy == "Conservative Investor" and (exposure == "Defensive" or risk <= 4 or volatility <= 30):
+            contributors.append(f"{ticker} adds a steadier element at {pct:.0f}% of the portfolio, which helps offset more volatile holdings.")
+        elif target_strategy == "Balanced Investor" and 3.5 <= risk <= 6.5 and volatility <= 40:
+            contributors.append(f"{ticker} works well as a core holding at {pct:.0f}% because its risk and volatility are not dominating the mix.")
+        elif target_strategy == "Aggressive Growth" and (momentum >= 6 or exposure in ["Growth", "Speculative"]):
+            contributors.append(f"{ticker} is helping the growth profile at {pct:.0f}% because it adds leadership exposure and positive momentum.")
+        elif target_strategy == "Momentum Trader" and momentum >= 7:
+            contributors.append(f"{ticker} is one of the main trend drivers at {pct:.0f}% of the portfolio.")
+        elif target_strategy == "Long-Term Compounder" and risk <= 5.5 and not h.get('below_ma200'):
+            contributors.append(f"{ticker} supports the long-term profile at {pct:.0f}% because risk looks manageable and the broader trend is still intact.")
+        elif target_strategy == "Value Hunter" and valuation >= 7:
+            contributors.append(f"{ticker} helps the value case at {pct:.0f}% because valuation support is stronger than the rest of the mix.")
+
+    return contributors[:2]
+
+
+def get_alignment_pressure_points(target_strategy, weighted_holdings):
+    pressure_points = []
+    for h in weighted_holdings:
+        ticker = h.get('ticker', 'A holding')
+        pct = h.get('portfolio_pct', 0)
+        momentum = h.get('momentum_score') or 0
+        risk = h.get('risk_score') or 0
+        valuation = h.get('valuation_score') or 0
+        volatility = h.get('volatility') or 0
+        exposure = h.get('exposure_group')
+
+        if pct >= 45:
+            pressure_points.append(f"{ticker} makes up {pct:.0f}% of the portfolio, so a lot depends on that one position performing well.")
+        if target_strategy == "Conservative Investor" and (exposure == "Speculative" or risk >= 7 or volatility >= 45):
+            pressure_points.append(f"{ticker} is a difficult fit here because it tends to move much more than a lower-risk portfolio usually targets.")
+        elif target_strategy == "Balanced Investor" and (risk >= 7 or volatility >= 45 or exposure == "Speculative"):
+            pressure_points.append(f"{ticker} may be carrying more risk than a balanced mix needs, especially if markets become choppier.")
+        elif target_strategy == "Aggressive Growth" and momentum < 5:
+            pressure_points.append(f"{ticker} is not adding much to the growth case right now because its trend strength is lagging.")
+        elif target_strategy == "Aggressive Growth" and exposure == "Speculative" and volatility >= 45:
+            pressure_points.append(f"{ticker} can move sharply, so its position size matters even when higher volatility is acceptable.")
+        elif target_strategy == "Momentum Trader" and (momentum < 5 or h.get('below_ma200')):
+            pressure_points.append(f"{ticker} is not adding much to the trend profile because momentum or moving-average support looks weak.")
+        elif target_strategy == "Long-Term Compounder" and (risk >= 7 or volatility >= 45 or h.get('below_ma200')):
+            pressure_points.append(f"{ticker} may make the long-term profile less steady because it brings higher swings or weaker trend support.")
+        elif target_strategy == "Value Hunter" and valuation < 5:
+            pressure_points.append(f"{ticker} does not add much to the value case because valuation support is limited.")
+
+    deduped = []
+    for item in pressure_points:
+        if item not in deduped:
+            deduped.append(item)
+    return deduped[:3]
+
+
+def get_holding_specific_adjustments(target_strategy, weighted_holdings, portfolio_metrics):
+    adjustments = []
+    largest = weighted_holdings[0] if weighted_holdings else None
+    high_volatility = [h for h in weighted_holdings if (h.get('volatility') or 0) >= 45]
+    speculative = [h for h in weighted_holdings if h.get('exposure_group') == "Speculative"]
+    weak_momentum = [h for h in weighted_holdings if (h.get('momentum_score') or 0) < 5]
+    strong_momentum = [h for h in weighted_holdings if (h.get('momentum_score') or 0) >= 7]
+    weak_value = [h for h in weighted_holdings if (h.get('valuation_score') or 0) < 5]
+
+    if largest and largest.get('portfolio_pct', 0) >= 45:
+        adjustments.append(f"{largest.get('ticker')} is {largest.get('portfolio_pct', 0):.0f}% of the portfolio, so results lean heavily on one name. Bringing that weight down could reduce concentration while keeping exposure to the same theme.")
+
+    if target_strategy == "Conservative Investor":
+        focus = (speculative or high_volatility)[:1]
+        if focus:
+            h = focus[0]
+            adjustments.append(f"{h.get('ticker')} adds higher-risk exposure and may swing more than this profile typically needs. A smaller weight could make the mix easier to hold during pullbacks.")
+        if portfolio_metrics.get('defensive_exposure_pct', 0) < 25:
+            adjustments.append("There are not many lower-risk holdings to balance out volatility. Healthcare, consumer defensive, or utility exposure could help add steadier earnings profiles.")
+    elif target_strategy == "Balanced Investor":
+        focus = (speculative or high_volatility)[:1]
+        if focus:
+            h = focus[0]
+            adjustments.append(f"{h.get('ticker')} appears to be one of the bigger risk contributors. A smaller weight could make the overall mix feel more balanced.")
+        adjustments.append("Adding exposure outside the dominant sector would keep results from leaning too heavily on one theme.")
+    elif target_strategy == "Aggressive Growth":
+        focus = weak_momentum[:1]
+        if focus:
+            h = focus[0]
+            adjustments.append(f"{h.get('ticker')} has weaker momentum than the rest of the growth sleeve. Reviewing its role would make the growth mix cleaner.")
+        elif speculative:
+            h = speculative[0]
+            adjustments.append(f"{h.get('ticker')} can move sharply, so the key is position size rather than cutting growth exposure broadly.")
+        elif strong_momentum:
+            h = strong_momentum[0]
+            adjustments.append(f"{h.get('ticker')} is helping the growth case through momentum. Focus on position size rather than reducing growth exposure across the board.")
+    elif target_strategy == "Momentum Trader":
+        focus = weak_momentum[:1]
+        if focus:
+            h = focus[0]
+            adjustments.append(f"{h.get('ticker')} has weaker trend support. Shifting away from laggards would keep the mix focused on stronger price trends.")
+        if strong_momentum:
+            h = strong_momentum[0]
+            adjustments.append(f"{h.get('ticker')} is one of the stronger trend names. Similar momentum quality should be the bar for new additions.")
+    elif target_strategy == "Long-Term Compounder":
+        focus = (speculative or high_volatility)[:1]
+        if focus:
+            h = focus[0]
+            adjustments.append(f"{h.get('ticker')} brings more volatility than a steady long-term core usually needs. A smaller weight could make the profile more consistent.")
+        adjustments.append("When adding to the core, favor holdings with steadier volatility and durable long-term trends.")
+    elif target_strategy == "Value Hunter":
+        focus = weak_value[:1]
+        if focus:
+            h = focus[0]
+            adjustments.append(f"{h.get('ticker')} has weaker valuation support. Relying less on expensive momentum names would make the mix more value-oriented.")
+        adjustments.append("Prioritize holdings where the valuation case is clear, rather than relying mostly on price strength.")
+
+    deduped = []
+    for item in adjustments:
+        if item not in deduped:
+            deduped.append(item)
+    return deduped[:3]
+
+
+def get_strategy_fit_suggestions(target_strategy, portfolio_metrics, weighted_holdings):
+    suggestions = []
+    largest = portfolio_metrics.get('largest_pct', 0)
+    avg_momentum = portfolio_metrics.get('avg_momentum', 0)
+    avg_valuation = portfolio_metrics.get('avg_valuation', 0)
+    avg_volatility = portfolio_metrics.get('avg_volatility', 0)
+    growth_exp = portfolio_metrics.get('growth_exposure_pct', 0)
+    defensive_exp = portfolio_metrics.get('defensive_exposure_pct', 0)
+    speculative_exp = portfolio_metrics.get('speculative_exposure_pct', 0)
+    below_200_share = portfolio_metrics.get('below_200_share', 0)
+    sector_concentration = portfolio_metrics.get('sector_concentration') or {}
+    top_sector = max(sector_concentration, key=sector_concentration.get) if sector_concentration else None
+    top_sector_pct = sector_concentration.get(top_sector, 0) if top_sector else 0
+
+    if target_strategy == "Conservative Investor":
+        if defensive_exp < 25 or avg_volatility > 40 or speculative_exp > 30:
+            suggestions.append(
+                f"Lower-risk exposure is thin, while volatility is doing more of the work. Healthcare, utilities, and consumer defensive exposure could help steady the mix during weaker markets. Examples to research include JNJ, PG, KO, PEP, or XLU because these areas historically have steadier earnings and smaller price swings."
+            )
+        if largest >= 45:
+            suggestions.append(
+                f"The largest position is {largest:.0f}% of the portfolio. Adding steadier sectors could reduce how much the overall result depends on one holding."
+            )
+
+    elif target_strategy == "Balanced Investor":
+        if top_sector_pct >= 50 or largest >= 45:
+            sector_text = f"{top_sector} is about {top_sector_pct:.0f}% of the portfolio" if top_sector else "one area drives a large share of the portfolio"
+            suggestions.append(
+                f"{sector_text}, so the portfolio may be leaning too hard on one area. Broad technology leaders, financials, healthcare, industrials, or diversified market exposure could help spread the drivers of return. Examples to research include AAPL, MSFT, JPM, HON, or VTI."
+            )
+        if defensive_exp < 20 and growth_exp + speculative_exp > 65:
+            suggestions.append(
+                f"Growth exposure is carrying most of the profile, while steadier holdings are limited. Adding lower-volatility companies could make the risk profile feel more balanced."
+            )
+
+    elif target_strategy == "Aggressive Growth":
+        if growth_exp + speculative_exp < 50 or avg_momentum < 6:
+            suggestions.append(
+                f"The current mix does not show enough growth leadership or trend strength. Technology, AI, semiconductors, and growth software exposure may better match that gap. Examples to research include NVDA, META, AMD, PLTR, or AMZN because these areas tend to be more tied to innovation-driven growth and momentum."
+            )
+        if avg_momentum >= 6 and largest < 45 and growth_exp + speculative_exp >= 50:
+            return []
+
+    elif target_strategy == "Momentum Trader":
+        if avg_momentum < 6 or below_200_share > 40:
+            suggestions.append(
+                f"Trend strength is not clear enough across the holdings. Stocks with stronger relative strength and cleaner price trends may fit better. Examples to research include NVDA, META, AVGO, or TSLA because they are often watched for leadership-style momentum, not as performance predictions."
+            )
+        weak_trends = [h for h in weighted_holdings if (h.get('momentum_score') or 0) < 5 or h.get('below_ma200')]
+        if weak_trends:
+            tickers = ", ".join(h.get('ticker', 'a holding') for h in weak_trends[:2])
+            suggestions.append(
+                f"{tickers} look weaker from a trend perspective. A cleaner momentum profile would come from holdings with stronger price trends and fewer moving-average breakdowns."
+            )
+
+    elif target_strategy == "Long-Term Compounder":
+        if speculative_exp > 35 or avg_volatility > 40 or below_200_share > 40:
+            suggestions.append(
+                f"The portfolio could use a steadier long-term core. Quality large-cap, healthcare, consumer staples, and durable cash-flow profiles may help because they can make returns less dependent on high-volatility names."
+            )
+        if largest >= 45:
+            suggestions.append(
+                f"With the largest holding at {largest:.0f}%, the long-term outcome depends heavily on one company. Broader core exposure could make the compounding profile more stable."
+            )
+
+    elif target_strategy == "Value Hunter":
+        if avg_valuation < 6:
+            suggestions.append(
+                f"The portfolio does not yet show strong value characteristics. More attractive valuation support, reasonable risk, and upside that is not based only on momentum would better match the goal."
+            )
+        if speculative_exp > 35 or avg_volatility > 45:
+            suggestions.append(
+                f"Higher-risk exposure is taking up a meaningful part of the mix. More stable value-oriented areas, such as financials, healthcare, or consumer defensive companies, may fit better because they can offer clearer fundamentals with less reliance on momentum."
+            )
+
+    return unique_commentary_items(suggestions, 2)
+
+
+def unique_commentary_items(items, limit=None):
+    deduped = []
+    for item in items:
+        if item and item not in deduped:
+            deduped.append(item)
+    return deduped[:limit] if limit else deduped
+
+
 def generate_portfolio_commentary(target_strategy, portfolio_metrics, holdings):
     style = portfolio_metrics.get('style', 'Mixed / Unclear')
     alignment = portfolio_metrics.get('alignment', 'Moderate')
@@ -780,113 +1003,143 @@ def generate_portfolio_commentary(target_strategy, portfolio_metrics, holdings):
     defensive_exp = portfolio_metrics.get('defensive_exposure_pct', 0)
     speculative_exp = portfolio_metrics.get('speculative_exposure_pct', 0)
     below_200_share = portfolio_metrics.get('below_200_share', 0)
+    weighted_holdings = get_weighted_holdings(holdings)
+    alignment_contributors = get_alignment_contributors(target_strategy, weighted_holdings)
+    alignment_pressure_points = get_alignment_pressure_points(target_strategy, weighted_holdings)
+    holding_adjustments = get_holding_specific_adjustments(target_strategy, weighted_holdings, portfolio_metrics)
+    strategy_fit_suggestions = get_strategy_fit_suggestions(target_strategy, portfolio_metrics, weighted_holdings)
 
-    summary = f"The portfolio reads as {style.lower()}, with {top3:.0f}% of value in the top three holdings and average volatility near {avg_volatility:.1f}%."
+    summary = f"The portfolio looks {style.lower()}, with {top3:.0f}% of its value in the top three holdings and a volatility profile that shapes the overall risk."
     if style == "Momentum-Oriented Growth":
-        summary = f"Momentum and growth leadership define this portfolio; price strength is doing more work than valuation support."
+        summary = f"This portfolio is mainly driven by growth and momentum. Price strength matters more here than valuation support."
     elif style == "Concentrated Growth":
-        summary = f"This is a concentrated growth allocation where a few positions will drive most of the portfolio's behavior."
+        summary = f"This is a concentrated growth portfolio, so a few positions will drive most of the experience."
     elif style == "Speculative High-Volatility":
-        summary = f"This allocation carries speculative, high-volatility characteristics, with results likely shaped by a small group of faster-moving holdings."
+        summary = f"This portfolio is built around higher-volatility names, so results may swing more than a typical diversified portfolio."
     elif style == "Value-Oriented":
-        summary = f"Valuation support is the main feature of this portfolio, while momentum plays a secondary role."
+        summary = f"Valuation is the main strength of this portfolio, while momentum plays a smaller role."
     elif style == "Defensive / Conservative":
-        summary = f"The portfolio has a defensive posture, supported by lower volatility and steadier capital-preservation exposure."
+        summary = f"The portfolio has a defensive feel, with lower volatility and holdings that are better suited for preserving capital."
     elif style == "Balanced Large-Cap Blend":
-        summary = f"This looks like a balanced large-cap blend, with moderate risk and exposure spread across core holdings."
+        summary = f"This looks like a balanced large-cap mix, with moderate risk spread across core holdings."
 
     strengths = []
     weaknesses = []
     suggested_adjustments = []
     risk_assessment = []
 
-    if avg_momentum >= 7:
-        strengths.append("Momentum is strong enough to support a growth or trading-oriented mandate.")
-    if growth_exp >= 35 or speculative_exp >= 35:
-        strengths.append("Growth exposure gives the portfolio clear participation in upside-led markets.")
-    if defensive_exp >= 25:
-        strengths.append("Stabilizing exposure is present, which can help cushion weaker market periods.")
-    if avg_valuation >= 7:
-        strengths.append("Valuation support is a clear positive within the current mix.")
+    strengths.extend(alignment_contributors)
+    if avg_momentum >= 7 and target_strategy in ["Aggressive Growth", "Momentum Trader"]:
+        strengths.append("Momentum is strong enough to support a growth or trading-oriented approach.")
+    if (growth_exp >= 35 or speculative_exp >= 35) and target_strategy in ["Aggressive Growth", "Momentum Trader", "Balanced Investor"]:
+        strengths.append("Growth exposure is meaningful enough to participate when markets reward risk-taking.")
+    if defensive_exp >= 25 and target_strategy in ["Conservative Investor", "Balanced Investor", "Long-Term Compounder"]:
+        strengths.append("Some lower-risk exposure is present, which helps balance the portfolio during weaker markets.")
+    if avg_valuation >= 7 and target_strategy in ["Value Hunter", "Balanced Investor", "Long-Term Compounder"]:
+        strengths.append("The valuation picture is a clear positive in the current mix.")
     if top3 < 65:
-        strengths.append("Position sizing is not overly dependent on one or two holdings.")
+        strengths.append("The portfolio is not overly dependent on just one or two positions.")
 
-    if largest >= 45:
-        weaknesses.append("The largest position creates notable single-stock dependency.")
+    weaknesses.extend(alignment_pressure_points)
+    if largest >= 45 and not any("one position" in item for item in weaknesses):
+        weaknesses.append("The largest position carries a lot of influence over the portfolio.")
     if avg_volatility >= 45:
-        weaknesses.append("Volatility is above average, so short-term moves may be less stable.")
+        weaknesses.append("Short-term swings may be larger than they would be in a steadier allocation.")
     if defensive_exp < 20 and target_strategy in ["Conservative Investor", "Balanced Investor", "Long-Term Compounder"]:
-        weaknesses.append("The portfolio has less ballast than this strategy typically prefers.")
+        weaknesses.append("There are not many lower-risk holdings to offset the more volatile parts of the portfolio.")
     if avg_valuation < 5 and avg_momentum >= 7 and target_strategy in ["Value Hunter", "Balanced Investor", "Long-Term Compounder"]:
-        weaknesses.append("Momentum is carrying the case more than valuation, which is a weaker fit for this target.")
+        weaknesses.append("Momentum is doing more of the work than valuation, which is not ideal for this target strategy.")
     if speculative_exp >= 35 and avg_volatility >= 40:
-        weaknesses.append("Speculative exposure paired with higher volatility can make pullbacks harder to absorb.")
+        weaknesses.append("Higher-risk holdings could make market pullbacks feel sharper.")
     if avg_momentum < 5 and target_strategy in ["Aggressive Growth", "Momentum Trader"]:
-        weaknesses.append("Momentum is not yet strong enough for a growth or trend-focused mandate.")
+        weaknesses.append("Momentum is not strong enough yet for a growth or trend-focused strategy.")
 
+    suggested_adjustments.extend(holding_adjustments)
     if target_strategy == "Aggressive Growth":
-        suggested_adjustments.append("Keep the growth tilt as long as momentum remains supportive.")
-        suggested_adjustments.append("Use position sizing to manage concentration rather than automatically cutting leadership names.")
-        suggested_adjustments.append("Review the weakest-trend speculative holdings before changing the core winners.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Keep the growth tilt if momentum stays supportive.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Manage concentration through position size instead of automatically cutting the strongest names.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Review weaker-trend holdings before changing the core winners.")
     elif target_strategy == "Balanced Investor":
-        suggested_adjustments.append("Trim any position that starts to dominate the portfolio's results.")
-        suggested_adjustments.append("Add sector variety instead of relying too heavily on one growth theme.")
-        suggested_adjustments.append("Pair growth exposure with holdings that have steadier volatility profiles.")
+        if len(suggested_adjustments) < 3 and largest >= 45:
+            suggested_adjustments.append("Bring down any position that starts to dominate portfolio results.")
+        if len(suggested_adjustments) < 3 and not any("sector" in item.lower() for item in suggested_adjustments):
+            suggested_adjustments.append("Add sector variety so the portfolio is not leaning too heavily on one growth theme.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Pair growth holdings with steadier names to smooth out the ride.")
     elif target_strategy == "Conservative Investor":
-        suggested_adjustments.append("Scale back speculative or high-volatility exposure first.")
-        suggested_adjustments.append("Reduce the largest position if it is driving too much portfolio risk.")
-        suggested_adjustments.append("Add lower-volatility holdings with steadier business profiles.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Start by scaling back the highest-volatility positions.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Reduce the largest position if it is driving too much of the risk.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Add lower-volatility holdings with steadier business profiles.")
     elif target_strategy == "Momentum Trader":
-        suggested_adjustments.append("Prioritize holdings with the strongest momentum scores.")
-        suggested_adjustments.append("Move capital away from sideways or deteriorating trends.")
-        suggested_adjustments.append("Watch for breaks below major moving averages before increasing exposure.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Prioritize holdings with the strongest momentum scores.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Move away from holdings with sideways or weakening trends.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Be cautious about adding to names that break below major moving averages.")
     elif target_strategy == "Long-Term Compounder":
-        suggested_adjustments.append("Strengthen the core with higher-quality, more stable holdings.")
-        suggested_adjustments.append("Limit speculative concentration where it weakens consistency.")
-        suggested_adjustments.append("Favor names with durable long-term trend support.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Strengthen the core with higher-quality, steadier holdings.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Keep higher-risk positions from becoming too large.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Favor names with long-term trends that still look intact.")
     elif target_strategy == "Value Hunter":
-        suggested_adjustments.append("Prioritize holdings with clearer valuation support.")
-        suggested_adjustments.append("Reduce overextended names where price strength has outpaced fundamentals.")
-        suggested_adjustments.append("Look for upside that comes with manageable risk, not momentum alone.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Prioritize holdings with clearer valuation support.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Reduce names where price strength has moved ahead of the fundamentals.")
+        if len(suggested_adjustments) < 3:
+            suggested_adjustments.append("Look for upside that comes with manageable risk, not momentum alone.")
 
     if largest >= 45:
-        risk_assessment.append("Concentration risk increases downside vulnerability and reduces diversification stability.")
+        risk_assessment.append("If the largest holding pulls back, it could have an outsized effect on the whole portfolio.")
     if avg_volatility >= 40:
-        risk_assessment.append("Higher volatility makes portfolio value more sensitive to broad market moves.")
+        risk_assessment.append("Broader market weakness could lead to bigger swings.")
     if defensive_exp < 20 and target_strategy != "Momentum Trader":
-        risk_assessment.append("There is limited stabilizing exposure if market conditions weaken.")
+        if target_strategy == "Aggressive Growth":
+            risk_assessment.append("That is acceptable for an aggressive strategy, but pullbacks may feel sharper without many steadier holdings.")
+        else:
+            risk_assessment.append("In a rough market, there may not be much cushion from steadier holdings.")
     if speculative_exp >= 35:
-        risk_assessment.append("Speculative exposure may add pressure if investor sentiment turns less favorable.")
+        risk_assessment.append("Higher-risk names may come under pressure if investor sentiment turns cautious.")
     if below_200_share > 50:
-        risk_assessment.append("Trend durability is weaker when most holdings sit below their 200-day averages.")
+        risk_assessment.append("The trend picture is weaker when most holdings are below their 200-day averages.")
     if not risk_assessment:
-        risk_assessment.append(f"Risk is broadly in line with {target_strategy}, with no single issue dominating the profile.")
+        risk_assessment.append(f"Risk looks broadly in line with {target_strategy}, with no single issue standing out.")
 
-    alignment_reason = "the mix broadly matches the selected risk and exposure profile"
+    alignment_reason = "the mix generally matches the selected risk and exposure profile"
     if target_strategy == "Conservative Investor":
-        alignment_reason = "stability, volatility control, and lower-risk exposure are the main priorities"
+        alignment_reason = "the goal is stability, lower volatility, and lower-risk holdings"
     elif target_strategy == "Balanced Investor":
-        alignment_reason = "moderate risk, sector balance, and manageable position sizing drive the fit"
+        alignment_reason = "moderate risk, sector balance, and reasonable position sizes matter most"
     elif target_strategy == "Aggressive Growth":
-        alignment_reason = "growth exposure and momentum are rewarded, while volatility is more acceptable"
+        alignment_reason = "growth exposure and momentum matter more, and higher volatility is more acceptable"
     elif target_strategy == "Momentum Trader":
-        alignment_reason = "trend strength and moving-average support are the key measures"
+        alignment_reason = "trend strength is the main thing that matters here"
     elif target_strategy == "Long-Term Compounder":
-        alignment_reason = "manageable risk and long-term trend durability matter most"
+        alignment_reason = "manageable risk and durable long-term trends matter most"
     elif target_strategy == "Value Hunter":
         alignment_reason = "valuation quality matters more than near-term price strength"
 
-    concentration_note = " Concentration risk increases downside vulnerability and reduces diversification stability." if largest >= 45 else ""
+    concentration_note = " The main caution is that too much depends on one position performing well." if largest >= 45 else ""
     score_note = f" ({alignment_score:.1f}/10)" if isinstance(alignment_score, (int, float)) else ""
 
     return {
         "portfolio_summary": summary,
         "current_portfolio_style": f"The current allocation is best described as {style}.",
-        "strategy_alignment": f"The portfolio has {alignment.lower()} alignment with {target_strategy}{score_note} because {alignment_reason}.{concentration_note}",
-        "strengths": strengths or ["The portfolio has a recognizable investment posture."],
-        "weaknesses": weaknesses or ["No major mismatch stands out against the selected target strategy."],
-        "suggested_adjustments": suggested_adjustments or ["Keep monitoring whether position size and volatility remain consistent with the selected strategy."],
-        "risk_assessment": risk_assessment,
+        "strategy_alignment": f"Alignment with {target_strategy} is {alignment.lower()}{score_note} because {alignment_reason}.{concentration_note}",
+        "strengths": unique_commentary_items(strengths, 4) or [f"No single holding clearly improves alignment with {target_strategy} right now."],
+        "weaknesses": unique_commentary_items(weaknesses, 4) or ["No major mismatch stands out against the selected target strategy."],
+        "suggested_adjustments": unique_commentary_items(suggested_adjustments, 3) or ["Keep checking that position sizes and volatility still match the selected strategy."],
+        "strategy_fit_suggestions": strategy_fit_suggestions or ["No clear missing strategy category stands out right now."],
+        "risk_assessment": unique_commentary_items(risk_assessment, 4),
     }
 
 
@@ -940,9 +1193,11 @@ Write concise sections:
 4. Strengths
 5. Weaknesses
 6. Suggested Adjustments
-7. Risk Assessment
+7. Strategy Fit Suggestions
+8. Risk Assessment
 
-Keep content direct, professional, and strategy-focused.
+For Strategy Fit Suggestions, explain missing portfolio characteristics or sectors only when the portfolio clearly lacks them. Optional ticker examples must be framed as examples to research, not buy recommendations.
+Keep content direct, professional, educational, and strategy-focused.
 """
 
     response = client.chat.completions.create(
@@ -964,6 +1219,7 @@ Keep content direct, professional, and strategy-focused.
         "strengths": report.get("strengths", []),
         "weaknesses": report.get("weaknesses", []),
         "suggested_adjustments": report.get("suggested_adjustments", []),
+        "strategy_fit_suggestions": report.get("strategy_fit_suggestions", []),
         "risk_assessment": report.get("risk_assessment", []),
     }
 

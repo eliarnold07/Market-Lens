@@ -987,6 +987,7 @@
           <div class="portfolio-analysis-section" id="portfolioAnalysisStrengths"></div>
           <div class="portfolio-analysis-section" id="portfolioAnalysisWeaknesses"></div>
           <div class="portfolio-analysis-section" id="portfolioAnalysisAdjustments"></div>
+          <div class="portfolio-analysis-section" id="portfolioAnalysisFitSuggestions"></div>
           <div class="portfolio-analysis-section" id="portfolioAnalysisRisk"></div>
         </div>
       </div>
@@ -1432,6 +1433,7 @@
     document.getElementById('portfolioAnalysisStrengths').innerHTML = `<h4>Strengths</h4><ul>${(report.strengths || []).map(item => `<li>${item}</li>`).join('') || '<li>No strengths provided.</li>'}</ul>`;
     document.getElementById('portfolioAnalysisWeaknesses').innerHTML = `<h4>Weaknesses</h4><ul>${(report.weaknesses || []).map(item => `<li>${item}</li>`).join('') || '<li>No weaknesses provided.</li>'}</ul>`;
     document.getElementById('portfolioAnalysisAdjustments').innerHTML = `<h4>Suggested Adjustments</h4><ul>${(report.suggested_adjustments || []).map(item => `<li>${item}</li>`).join('') || '<li>No adjustment ideas generated.</li>'}</ul>`;
+    document.getElementById('portfolioAnalysisFitSuggestions').innerHTML = `<h4>Strategy Fit Suggestions</h4><ul>${(report.strategy_fit_suggestions || []).map(item => `<li>${item}</li>`).join('') || '<li>No clear missing strategy category stands out right now.</li>'}</ul>`;
     document.getElementById('portfolioAnalysisRisk').innerHTML = `<h4>Risk Assessment</h4><ul>${(report.risk_assessment || []).map(item => `<li>${item}</li>`).join('') || '<li>No risk insights provided.</li>'}</ul>`;
   }
 
